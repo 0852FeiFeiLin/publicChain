@@ -20,6 +20,10 @@ import "fmt"
 
 */
 func main() {
+	Menu()
+}
+func Menu() {
+
 	fmt.Println("**********功能菜单*********")
 	fmt.Println("1、创建区块链")
 	fmt.Println("2、添加区块")
@@ -31,5 +35,30 @@ func main() {
 	fmt.Scanln(&num)
 	fmt.Println(num)
 
+	switch num {
+	case 1:
+		A()
+	case 2:
+		B()
+	case 3:
+		C()
+	case 4:
+		D()
+	default:
+		fmt.Println("输入有误，请检查")
+
+	}
+
+}
+func A() {
+
+}
+func B() {
+
+}
+func C() {
+
+}
+func D() {
 
 }
