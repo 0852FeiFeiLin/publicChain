@@ -145,3 +145,55 @@ func (bc *BlockChain) Iterator() *ChainIterator {
 	//使用数据库
 	return &chainIterator
 }
+
+/*
+	查看具体区块
+*/
+func (bc *BlockChain) GetBlockInfo(hash []byte)([]byte,error){
+
+	return nil, nil
+}
+/*
+	查看区块个数
+*/
+func (bc *BlockChain)GetBlockCount()(count int,err  error){
+		//遍历区块链，然后conut++。计算总数
+		iterator := bc.Iterator()
+		for  {
+			if iterator.HahNext() {
+				_, err := iterator.Next()
+				if err != nil {
+					break
+				}
+				count++
+			}else {
+				break
+			}
+		}
+
+	//返回总数
+		return count,err
+}
+/*
+	获取到最后一个区块信息
+*/
+func (bc *BlockChain) GetLastBlock() (block *Block,err error){
+	bc.DB.View(func(tx *bolt.Tx) error {
+		//有桶1，直接用
+		bucket := tx.Bucket([]byte(BUCKET_BLOCK))
+		if bucket == nil {
+			return errors.New("还没有创建桶呢") //自定义错误信息返回
+		}
+		//桶2
+		bk2 := tx.Bucket([]byte(BUCKET_STATUS))
+		last := bk2.Get([]byte(LAST_HASH))
+		lastBlock := bucket.Get(last)
+		//反序列化
+		block, err = DeSerialize(lastBlock)
+		if err!=nil {
+			return err
+		}
+		return nil
+	})
+	return block,err
+}

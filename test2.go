@@ -43,6 +43,7 @@ func main() {
 	//迭代
 	fmt.Println("***********迭代**********")
 	iterator := chain.Iterator()
+	var count int
 	for  {
 		if iterator.HahNext(){
 			//还有区块，获取block,打印
@@ -50,12 +51,14 @@ func main() {
 			if err != nil {
 				break
 			}
+			count++
 			fmt.Println(string(next.Data))
 		}else {
 			fmt.Println("遍历完成！！")
 			break
 		}
 	}
+	fmt.Println(count)
 
 
 
