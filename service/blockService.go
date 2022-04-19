@@ -8,7 +8,11 @@ package service
  **/
 
 /*
+<<<<<<< HEAD
 	创建区块
+=======
+	对应client里面的所有功能
+>>>>>>> 1d33b38 (1.0)
 *//*
 func NewBlock(data []byte,prevHash []byte) *entity.Block { //交易信息，。上一个区块hash
 	//实例化结构体，创建区块

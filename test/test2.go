@@ -1,4 +1,4 @@
-package main
+package test
 
 import (
 	"fmt"
@@ -28,24 +28,24 @@ func main() {
 	if err != nil {
 		fmt.Println("失败", err.Error())
 		return
-	}/*
-	fmt.Println("创世区块", chain.LastHash)
-	err = chain.AddBlockToChain([]byte("1111"))
-	err = chain.AddBlockToChain([]byte("2222"))
-	err = chain.AddBlockToChain([]byte("3333"))
-	err = chain.AddBlockToChain([]byte("4444"))
-	if err != nil {
-		fmt.Println(err.Error(), "添加失败")
-		return
-	}
-	fmt.Println("添加成功")*/
+	} /*
+		fmt.Println("创世区块", chain.LastHash)
+		err = chain.AddBlockToChain([]byte("1111"))
+		err = chain.AddBlockToChain([]byte("2222"))
+		err = chain.AddBlockToChain([]byte("3333"))
+		err = chain.AddBlockToChain([]byte("4444"))
+		if err != nil {
+			fmt.Println(err.Error(), "添加失败")
+			return
+		}
+		fmt.Println("添加成功")*/
 
 	//迭代
 	fmt.Println("***********迭代**********")
 	iterator := chain.Iterator()
 	var count int
-	for  {
-		if iterator.HahNext(){
+	for {
+		if iterator.HahNext() {
 			//还有区块，获取block,打印
 			next, err := iterator.Next()
 			if err != nil {
@@ -53,13 +53,11 @@ func main() {
 			}
 			count++
 			fmt.Println(string(next.Data))
-		}else {
+		} else {
 			fmt.Println("遍历完成！！")
 			break
 		}
 	}
 	fmt.Println(count)
-
-
 
 }

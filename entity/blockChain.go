@@ -3,6 +3,7 @@ package entity
 import (
 	"errors"
 	"github.com/boltdb/bolt"
+	"publicChain/transaction"
 )
 
 /**
@@ -23,6 +24,7 @@ type BlockChain struct {
 	DB       *bolt.DB //将区块存入bolt数据库里面,数据库连接对象
 	LastHash []byte   //最后一个hash值
 }
+
 /*
 	创建区块链 ---> 改成blot区块链数据库
 		1、打开数据库
@@ -32,7 +34,7 @@ type BlockChain struct {
 		5、桶存在: 直接使用那个桶2，获取到最后一个区块的hash
 		6、给区块链赋值: db对象 + 最后一个区块hash
 */
-func NewBlockChain(data []byte) (*BlockChain, error) {
+func NewBlockChain(address string) (*BlockChain, error) {
 	var lastHash []byte //用于接收lastHash
 	//打开数据库
 	db, err := bolt.Open(BLOCKCHAIN_DB_PATH, 0600, nil)
@@ -44,8 +46,9 @@ func NewBlockChain(data []byte) (*BlockChain, error) {
 		//先直接使用桶，如果没有桶再创建
 		bucket := tx.Bucket([]byte(BUCKET_BLOCK))
 		if bucket == nil { //如果桶为空，说明还没有区块链，就要创建区块链  桶1 = 区块链
-			//先获取到创世区块
-			genesic := NewGenesisBlock(data)
+			//获取到创世区块,(1.调用方法。2.传入coinbase交易)
+			coinbase, _ := transaction.NewCoinBase(address)//放入交易包里面。功能单一
+			genesic := NewGenesisBlock(*coinbase)
 			//创建第一个桶1，存储区块
 			bk, err := tx.CreateBucket([]byte(BUCKET_BLOCK))
 			if err != nil {
@@ -87,9 +90,12 @@ func NewBlockChain(data []byte) (*BlockChain, error) {
 /*
 	创建创世区块
 */
-func NewGenesisBlock(data []byte) *Block {
+func NewGenesisBlock(tx transaction.Transaction) *Block {
 	//创世区块 (交易信息data,上一个区块hash:32个0特殊化,)
-	return NewBlock(data, []byte{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})
+	return NewBlock([]transaction.Transaction{tx}, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+	/*
+		解释：你传一个切片给我，但是切片里面只有一个txs，一个交易信息，
+	*/
 }
 
 /*
@@ -100,9 +106,9 @@ func NewGenesisBlock(data []byte) *Block {
 		4、更新桶2，也就是把最后一个hash值变为当前新区块的hash值
 		5、给区块链也重新赋值
 */
-func (bc *BlockChain) AddBlockToChain(data []byte) error {
+func (bc *BlockChain) AddBlockToChain(txs []transaction.Transaction) error {
 	//1、创建区块
-	newBlock := NewBlock(data, bc.LastHash) //上一个区块的hash值，直接从区块链获取
+	newBlock := NewBlock(txs, bc.LastHash) //上一个区块的hash值，直接从区块链获取
 	//2、添加至区块链数据库
 	err := bc.DB.Update(func(tx *bolt.Tx) error {
 		//有桶了，直接用
@@ -147,37 +153,38 @@ func (bc *BlockChain) Iterator() *ChainIterator {
 }
 
 /*
-	查看具体区块
+	获取到最后一个区块信息
 */
-func (bc *BlockChain) GetBlockInfo(hash []byte)([]byte,error){
+func (bc *BlockChain) GetBlockInfo(hash []byte) ([]byte, error) {
 
 	return nil, nil
 }
+
 /*
-	查看区块个数
+	查看区块个数  没有用到
 */
-func (bc *BlockChain)GetBlockCount()(count int,err  error){
-		//遍历区块链，然后conut++。计算总数
-		iterator := bc.Iterator()
-		for  {
-			if iterator.HahNext() {
-				_, err := iterator.Next()
-				if err != nil {
-					break
-				}
-				count++
-			}else {
+func (bc *BlockChain) GetBlockCount() (count int, err error) {
+	//遍历区块链，然后conut++。计算总数
+	iterator := bc.Iterator()
+	for {
+		if iterator.HahNext() {
+			_, err := iterator.Next()
+			if err != nil {
 				break
 			}
+			count++
+		} else {
+			break
 		}
+	}
 
 	//返回总数
-		return count,err
+	return count, err
 }
+
 /*
-	获取到最后一个区块信息
-*/
-func (bc *BlockChain) GetLastBlock() (block *Block,err error){
+	获取到最后一个区块信息  没有用到
+*/func (bc *BlockChain) GetLastBlock() (block *Block, err error) {
 	bc.DB.View(func(tx *bolt.Tx) error {
 		//有桶1，直接用
 		bucket := tx.Bucket([]byte(BUCKET_BLOCK))
@@ -189,11 +196,32 @@ func (bc *BlockChain) GetLastBlock() (block *Block,err error){
 		last := bk2.Get([]byte(LAST_HASH))
 		lastBlock := bucket.Get(last)
 		//反序列化
-		block, err = DeSerialize(lastBlock)
-		if err!=nil {
+		block, err = block.DeSerialize(lastBlock)
+		if err != nil {
 			return err
 		}
 		return nil
 	})
-	return block,err
+	return block, err
+}
+
+/*
+	获取所有区块对象，返回切片对象
+*/
+func (bc *BlockChain) GetAllBlock() (blocks []*Block, err error) {
+	iterator := bc.Iterator()
+	for {
+		if iterator.HahNext() {
+			//还有区块，获取block,赋值给Block切片
+			block, err := iterator.Next()
+			if err != nil {
+				return nil, err
+			}
+			//追加
+			blocks = append(blocks, block)
+		} else { //迭代完了，没有对象了
+			break
+		}
+	}
+	return blocks, nil
 }

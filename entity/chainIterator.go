@@ -39,7 +39,7 @@ func (iterator *ChainIterator) Next() (*Block, error) {
 		//通过标志位hash从桶1找到对应区块（标志位在blockchain里面赋值了 = lastHash）
 		hashBytes := bucket.Get(iterator.CurrentHash)
 		//反序列化返回区块
-		block, err = DeSerialize(hashBytes)
+		block, err = block.DeSerialize(hashBytes)
 		//更新标志位  = 当前区块的prevHash  这样下一次出来的就是上一个区块
 		iterator.CurrentHash = block.PrevHash
 		return nil

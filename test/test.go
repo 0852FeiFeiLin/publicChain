@@ -1,8 +1,4 @@
-package main
-
-import (
-
-)
+package test
 
 /**
  * @author: linfeifei
@@ -16,8 +12,7 @@ import (
 	2、进行添加区块（NewBlock实现了pow算法），从而提升了难度
 	3、查看区块的随机数
 */
-/*func main() {
-	//创建区块链
+func main() {/*//创建区块链
 	bc := entity.NewBlockChain([]byte("创世区块"))
 	fmt.Println(string(bc.Blocks[0].Data))
 
@@ -27,5 +22,6 @@ import (
 
 	//现在有两个区块了，然后我们打印随机数看一下
 	fmt.Println("创世区块的随机数：",bc.Blocks[0].Nonce)
-	fmt.Println("222区块的随机数：",bc.Blocks[1].Nonce)
-}*/
+	fmt.Println("222区块的随机数：",bc.Blocks[1].Nonce)*/
+
+}

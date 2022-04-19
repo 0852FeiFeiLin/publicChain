@@ -15,7 +15,16 @@ import "os"
 			不存在 --->  返回false
 */
 func FileExits(path string) bool {
-	_, err := os.Lstat(path) //参数1：文件的描述信息  参数2：不存在返回错误，存在为空
+	/*
+		返回值1：文件描述
+		返回值2：文件存在err为空，不存在err为错误
+	*/
+	_, err := os.Lstat(path)
+	/*
+		os.IsNotExist
+			错误存在 --->返回true，代表文件不存在
+			错误不存在 --->  返回false，代表文件存在
+	*/
+	return !os.IsNotExist(err) //假设存错误：false  返回值!false   -->true
 
-	return !os.IsNotExist(err)  //假设存在：false  返回值!false   -->true
 }
