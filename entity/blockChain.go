@@ -34,7 +34,7 @@ type BlockChain struct {
 		5、桶存在: 直接使用那个桶2，获取到最后一个区块的hash
 		6、给区块链赋值: db对象 + 最后一个区块hash
 */
-func NewBlockChain(address string) (*BlockChain, error) {
+func NewBlockChain(address string) (*BlockChain, error) {  //address是地址，创建创世区块需要的账户
 	var lastHash []byte //用于接收lastHash
 	//打开数据库
 	db, err := bolt.Open(BLOCKCHAIN_DB_PATH, 0600, nil)
@@ -88,7 +88,7 @@ func NewBlockChain(address string) (*BlockChain, error) {
 }
 
 /*
-	创建创世区块
+	创建创世区块，
 */
 func NewGenesisBlock(tx transaction.Transaction) *Block {
 	//创世区块 (交易信息data,上一个区块hash:32个0特殊化,)

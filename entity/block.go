@@ -46,12 +46,12 @@ func (block *Block) GetPrevHash() []byte {
 		2、调用pow工人、找到区块hash值和随机数
 		3、返回区块
 */
-func NewBlock(data []transaction.Transaction, prevHash []byte) *Block { //交易信息，。上一个区块hash
+func NewBlock(txs []transaction.Transaction, prevHash []byte) *Block { //交易信息，。上一个区块hash
 	//实例化结构体，创建区块
 	block := Block{
 		TimeStamp: time.Now().Unix(),
 		PrevHash:  prevHash,
-		Txs:       data,
+		Txs:       txs,
 	}
 
 	//找到pow结构，也就是工人
@@ -68,7 +68,6 @@ func NewBlock(data []transaction.Transaction, prevHash []byte) *Block { //交易
 	/*//这样我们就不需要调用setHash方法了，因为在run方法里面就调用了GetHash
 	//调用结构体方法，计算当前区块hash值
 	block.NowHash = block.SetHash()*/
-
 	return &block
 }
 

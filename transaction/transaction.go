@@ -25,7 +25,7 @@ type Transaction struct {
 	OutPut []OutPut
 }
 
-//序列化
+//交易序列化方法
 func (txs *Transaction) Serialize() ([]byte, error) {
 	var result bytes.Buffer
 
@@ -40,8 +40,18 @@ func (txs *Transaction) Serialize() ([]byte, error) {
 }
 
 //反序列化
-func (txs *Transaction) DeSerialize() ([]byte, error) {
-	return nil, nil
+func (txs *Transaction) DeSerialize(txsByte []byte) (*Transaction, error) {
+	//把交易信息传入，声明缓冲流对象，
+	buffer := bytes.NewBuffer(txsByte)
+	decoder := gob.NewDecoder(buffer)
+	//要转换的类型
+	var tx Transaction
+	err := decoder.Decode(&tx)
+	if err != nil {
+		return nil,err
+	}
+	//返回反序列化后的结构体对象
+	return &tx,nil
 }
 
 /*

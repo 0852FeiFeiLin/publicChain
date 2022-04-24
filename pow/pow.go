@@ -24,21 +24,18 @@ const BITS = 10
 	工作量证明：找到随机数
 */
 type ProofOfWork struct {
-	//给哪一个区块工作
-	/*Block *entity.Block*/
-
 	//系统给定的hash目标值
 	Target *big.Int
-	/*
+	/*不需要了，这是循环引用解决方式1
 	PrevHash []byte
 	Data []byte
 	TimeStamp int64*/
-	//使用接口解决包循环引用问题
+	//使用接口解决包循环引用问题方式2
 	Block     BlockInterface
 }
 
 /*
-	接口
+	接口：负责定义，别的包实现，return我们需要的数据
 */
 type BlockInterface interface {
 	GetTimeStamp() int64
