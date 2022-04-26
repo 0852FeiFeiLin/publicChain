@@ -2,6 +2,7 @@ package entity
 
 import (
 	"errors"
+	"fmt"
 	"github.com/boltdb/bolt"
 	"publicChain/transaction"
 )
@@ -34,7 +35,7 @@ type BlockChain struct {
 		5、桶存在: 直接使用那个桶2，获取到最后一个区块的hash
 		6、给区块链赋值: db对象 + 最后一个区块hash
 */
-func NewBlockChain(address string) (*BlockChain, error) {  //address是地址，创建创世区块需要的账户
+func NewBlockChain(address string) (*BlockChain, error) { //address是地址，创建创世区块需要的账户
 	var lastHash []byte //用于接收lastHash
 	//打开数据库
 	db, err := bolt.Open(BLOCKCHAIN_DB_PATH, 0600, nil)
@@ -47,7 +48,7 @@ func NewBlockChain(address string) (*BlockChain, error) {  //address是地址，
 		bucket := tx.Bucket([]byte(BUCKET_BLOCK))
 		if bucket == nil { //如果桶为空，说明还没有区块链，就要创建区块链  桶1 = 区块链
 			//获取到创世区块,(1.调用方法。2.传入coinbase交易)
-			coinbase, _ := transaction.NewCoinBase(address)//放入交易包里面。功能单一
+			coinbase, _ := transaction.NewCoinBase(address) //放入交易包里面。功能单一
 			genesic := NewGenesisBlock(*coinbase)
 			//创建第一个桶1，存储区块
 			bk, err := tx.CreateBucket([]byte(BUCKET_BLOCK))
@@ -224,4 +225,96 @@ func (bc *BlockChain) GetAllBlock() (blocks []*Block, err error) {
 		}
 	}
 	return blocks, nil
+}
+
+/*
+	用来寻找某个人的所有收入，交易输出
+*/
+func (bc *BlockChain) FindAllOutput(from string) map[string][]int { //allOutput["txid"] = [1,2...]
+	/*
+		1、先找到区块链中的所有区块，
+		2、然后从区块中找到所有的交易，
+		3、然后找到所有的Output，
+		4、然后筛选出所有和from有关的Output。（交易输入同上)
+	*/
+	//1、找到所有的区块
+	blocks, err := bc.GetAllBlock()
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil
+	}
+
+	//存储from这个人的所有的收入交易输出容器map
+	/*
+		key:string  --> 唯一的hash值，表示收入所在的交易hash
+		value：[]int -->一笔交易中一个人可能有多个收入，所以是[]切片类型，表示收入的位置下标
+		allOutput["txid"] = [1,2...]
+	*/
+	allOutPut := make(map[string][]int)
+
+	//2、遍历每一个区块，
+	for _, block := range blocks {
+		//遍历找到区块中所有的交易
+		for _, tx := range block.Txs {
+			//找到交易中的所有output
+			for outIndex, output := range tx.OutPut {
+				//寻找from人的output
+				if output.IsUnlock(from) { //能解锁。是from人的,代表这笔交易输出就是form的，存入容器map中
+					/*
+						a、先通过tXid这个key返回map的value，
+						b、然后判断判断value是否为空，来判断这笔交易有没有被纪录过在map中，
+						c、加入到容器中allOutput
+					*/
+					//a、
+					outIds := allOutPut[string(tx.TXid)]
+					//b、如果这笔交易没有的存入过容器中，那就加入; 如果有的话，那就追加，修改
+					if outIds == nil || len(outIds) == 0 {
+						//存入
+						allOutPut[string(tx.TXid)] = []int{outIndex}
+						//根据key存储值，key就是txid
+					} else {
+						//在此之前，此笔交易已经有过存入了，那就追加
+						outIds = append(outIds, outIndex)
+						allOutPut[string(tx.TXid)] = outIds
+					}
+				}
+			}
+		}
+	}
+	//返回某个人的所有的收入，交易输出。output，
+	return allOutPut
+}
+
+/*
+	找到所有的交易输入，支出
+*/
+func (bc *BlockChain) FindAllInput(from string) ([]transaction.Input, error) { //allInput =[{Input1},{Input2}...]
+	/*
+		1、先找到区块链中的所有区块，
+		2、然后从区块中找到所有的交易，
+		3、然后找到所有的Itput，
+		4、然后筛选出所有和from有关的Input。（交易输入同上)
+	*/
+	block, err := bc.GetAllBlock()
+	if err != nil {
+		return nil, err
+	}
+	//直接声明input切片存储所有的交易输入，因为input里面是有txid和Vout的，就不使用map了
+	allInPut := make([]transaction.Input, 0)
+	//allInPut := make(map[string][]int)
+	for _, block := range block {
+		for _, tx := range block.Txs {
+			for _, input := range tx.Input {
+				//判断这笔支出是不是from这个人的，如果一致，说明是from锁定的
+				if input.IsLocked(from) {
+					if input.IsLocked(from) {
+						//直接交易输入添加到切片中
+						allInPut = append(allInPut, input)
+					}
+				}
+			}
+		}
+	}
+	//返回from的所有的交易输入 ,inputs
+	return allInPut, nil
 }

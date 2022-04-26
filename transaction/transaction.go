@@ -3,6 +3,7 @@ package transaction
 import (
 	"bytes"
 	"encoding/gob"
+	"publicChain/tools"
 )
 
 /**
@@ -67,7 +68,8 @@ func NewCoinBase(address string) (*Transaction, error) { //address 是矿工的�
 				Value: 50,
 				//锁定脚本里面的是一个账户，公钥
 				ScriptPubKey: []byte(address),
-			},
+				//[]byte("zhang")
+		},
 			//正常的交易，是有两个交易输出，也就是两个大括号{}，{}代表两个交易输出
 		},
 	}
@@ -79,4 +81,56 @@ func NewCoinBase(address string) (*Transaction, error) { //address 是矿工的�
 	cb.TXid = txsByte
 	//返回的是coinBase交易对象
 	return &cb, nil
+}
+
+/*
+	创建交易,返回交易
+		参数:(交易发送者，接受者，金额)
+*/
+func NewTransaction(from ,to string,amount uint)(*Transaction,error){
+	/*
+		1、创建Input
+			a、在已经有的交易中，去寻找可用的交易输出，
+				怎么找？
+					思路：
+						1、先找到区块链中的所有区块，
+						2、然后从区块中找到所有的交易，
+						3、然后找到所有的Output，
+						4、然后筛选出所有和from有关的Output。（交易输入同上)
+				余额 = 所有的收入（交易输出） - 所有的支出（交易输入）
+
+			b、从所有的可用的交易输出中，取出一部分，判断是否足够（够用就行）
+			c、构建Input
+		2、创建Output
+		3、给txid赋值
+		4、返回交易对象，
+	 */
+	//创建区块链对象
+/*	bc, err2 := entity.NewBlockChain("")
+	if err2 != nil {
+		return nil, err2
+	}
+	//余额  = 交易输出 - 交易输入  方法 *************还没写
+	output := bc.FindAllOutput(from)
+	input, err2 := bc.FindAllInput(from)
+	if err2 != nil {
+		return nil,err2
+	}
+	//相减方法 *************还没写******************************
+*/
+	tx := Transaction{//实例化交易对象
+		OutPut: nil,
+		Input: nil,
+	}
+	//序列化
+	byteTx,err := tx.Serialize()
+	if err != nil {
+		return nil, err
+	}
+	hahs := tools.GetSha256Hash(byteTx)
+	//3、
+	tx.TXid = hahs
+	//4、
+	return &tx,nil
+
 }

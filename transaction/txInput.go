@@ -1,5 +1,7 @@
 package transaction
 
+import "bytes"
+
 /**
  * @author: linfeifei
  * @email: 2778368047@qq.com
@@ -16,4 +18,12 @@ type Input struct {
 	//解锁脚本（后期使用者提供解锁脚本和公钥去验证这笔钱能不能被使用）
 	ScriptSing []byte
 }
-
+/*
+	判断能不能锁定
+ */
+func(in *Input) IsLocked(from string)(bool){
+	if from == "" {
+		return false
+	}
+	return bytes.Compare(in.ScriptSing,[]byte(from)) == 0
+}

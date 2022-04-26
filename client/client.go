@@ -6,6 +6,7 @@ import (
 	"os"
 	"publicChain/entity"
 	"publicChain/tools"
+	"publicChain/transaction"
 )
 
 /**
@@ -27,10 +28,11 @@ type Cli struct {
 
 func (cl *Cli) Run() {
 	//使用区块链对象
-	chain, _ := entity.NewBlockChain("")
+	chain, _ := entity.NewBlockChain("zhang")
 	defer chain.DB.Close()
 	//并赋值给client客户端，不然使用的时候会报空指针异常
 	cl.bc = chain
+
 	//判断数据库操作对象是否存在，写在这里就不需要每次在方法里面写了
 	if cl.bc == nil {
 		fmt.Println("区块链db不存在！")
@@ -45,8 +47,10 @@ func (cl *Cli) Run() {
 	case "createblockchain":
 		cl.createChain()
 	//功能2
-	case "addblock":
-		cl.addBlock()
+	/*case "addblock":
+		cl.addBlock()*/
+	case "send":
+		cl.send()
 	//功能3
 	case "printchain":
 		cl.printChain()
@@ -77,6 +81,8 @@ func (cl *Cli) Run() {
 
 /*
 	对应上面的所有功能
+	创建区块链：
+			main.exe createChain --address  "矿工账户"
 */
 func (cl *Cli) createChain() {
 	createBlockChain := flag.NewFlagSet("createBlockchain", flag.ExitOnError)
@@ -98,7 +104,10 @@ func (cl *Cli) createChain() {
 	}
 	fmt.Println("区块链创建成功")
 }
-func (cl *Cli) addBlock() {
+/*
+	没用了，添加区块修改成了发起交易的方法  sendTransaction
+ */
+/*func (cl *Cli) addBlock() {
 	addBlock := flag.NewFlagSet("addblock", flag.ExitOnError)
 	//先判断区块链是否存在，
 	exits := tools.FileExits("blockchain.db")
@@ -118,6 +127,43 @@ func (cl *Cli) addBlock() {
 		return
 	}
 	fmt.Println("添加区块成功")
+}*/
+
+/*
+	添加区块  --->  发起交易
+		想添加区块到区块链中，首先需要有交易，那我们就需要先发起交易，产生一笔交易(收钱人 给钱人 给钱的金额)
+		main.exe send  --from "zhang" --to  “li” --amount 50
+ */
+func (cl *Cli) send()  {
+	/*
+		1、创建一笔交易transaction
+		2、把这笔交易存储到区块中，并保存到区块链中，
+	 */
+	sendflag := flag.NewFlagSet("send", flag.ExitOnError)
+	from := sendflag.String("from","","交易发起者的地址")
+	to := sendflag.String("to","","交易接受者的地址")
+	//无符号，正整数，不能是负数
+	amount := sendflag.Uint("amount",0,"交易的金额")
+	//解析
+	sendflag.Parse(os.Args[2:])
+	//1、创建普通交易
+	newTransaction,err := transaction.NewTransaction(*from, *to, *amount)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	//2、把交易存储到区块中，并保存到区块链中
+	/*chain, err := entity.NewBlockChain("")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}*/
+	err = cl.bc.AddBlockToChain([]transaction.Transaction{*newTransaction})
+	if err != nil {
+		fmt.Println("区块添加失败！")
+		return
+	}
+	fmt.Println("区块添加成功！")
 }
 
 func (cl *Cli) printChain() {
@@ -133,10 +179,15 @@ func (cl *Cli) printChain() {
 		fmt.Println("获取AllBlocks对象失败")
 		return
 	}
-	//迭代切片输出
 	for _, b := range blocks {
 		fmt.Printf(":Prev. hash: %x\n", b.PrevHash)
-		fmt.Printf("Data: %s\n", b.Data)
+		fmt.Printf("Data: %d\n", len(b.Txs))
+		//遍历切片集合
+		for _, tx := range b.Txs {
+			fmt.Printf("\t交易hash:%x\n",tx.TXid)
+			//fmt.Printf("\t交易输入:%x\n",tx.Input)
+			//fmt.Printf("\t交易输出:%s\n",string(tx.OutPut[0].ScriptPubKey))
+		}
 		fmt.Printf("Hash: %x\n", b.NowHash)
 		fmt.Println()
 	}
@@ -172,7 +223,12 @@ func (cl *Cli) getLastBlock() {
 	}
 	//最后一个切片对象也就是最后一个区块
 	fmt.Printf("Prev. hash: %x\n", blocks[0].PrevHash)
-	fmt.Printf("Data: %s\n", blocks[0].Data)
+	fmt.Printf("Data: %d\n", len(blocks[0].Txs))
+	//遍历切片集合
+	for _, tx := range blocks[0].Txs {
+		fmt.Printf("\t交易hash:%x\n",tx.TXid)
+	}
+
 	fmt.Printf("Hash: %x\n", blocks[0].NowHash)
 }
 /*
@@ -192,7 +248,11 @@ func (cl *Cli) getFirstBlock() {
 	}
 	//最后一个切片对象也就是最后一个区块
 	fmt.Printf("Prev. hash: %x\n", blocks[len(blocks)-1].PrevHash)
-	fmt.Printf("Data: %s\n", blocks[len(blocks)-1].Data)
+	fmt.Printf("Data: %d\n", len(blocks[len(blocks)-1].Txs))
+	for _, tx := range blocks[len(blocks)-1].Txs {
+		fmt.Printf("\t交易hash:%x\n",tx.TXid)
+	}
+
 	fmt.Printf("Hash: %x\n", blocks[len(blocks)-1].NowHash)
 }
 //获取单个区块的信息
