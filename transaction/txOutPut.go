@@ -12,7 +12,7 @@ import "bytes"
  **/
 type OutPut struct {
 	//比特币的金额
-	Value int64
+	Value uint
 	//锁定脚本（每一笔交易会产生一个锁定脚本，限定于把这笔交易谁能使用）
 	ScriptPubKey []byte
 }

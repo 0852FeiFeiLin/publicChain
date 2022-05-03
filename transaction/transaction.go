@@ -3,6 +3,8 @@ package transaction
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
+	"publicChain/entity"
 	"publicChain/tools"
 )
 
@@ -49,10 +51,10 @@ func (txs *Transaction) DeSerialize(txsByte []byte) (*Transaction, error) {
 	var tx Transaction
 	err := decoder.Decode(&tx)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	//返回反序列化后的结构体对象
-	return &tx,nil
+	return &tx, nil
 }
 
 /*
@@ -69,7 +71,7 @@ func NewCoinBase(address string) (*Transaction, error) { //address 是矿工的�
 				//锁定脚本里面的是一个账户，公钥
 				ScriptPubKey: []byte(address),
 				//[]byte("zhang")
-		},
+			},
 			//正常的交易，是有两个交易输出，也就是两个大括号{}，{}代表两个交易输出
 		},
 	}
@@ -87,7 +89,7 @@ func NewCoinBase(address string) (*Transaction, error) { //address 是矿工的�
 	创建交易,返回交易
 		参数:(交易发送者，接受者，金额)
 */
-func NewTransaction(from ,to string,amount uint)(*Transaction,error){
+func NewTransaction(from, to string, amount uint) (*Transaction, error) {
 	/*
 		1、创建Input
 			a、在已经有的交易中，去寻找可用的交易输出，
@@ -104,33 +106,73 @@ func NewTransaction(from ,to string,amount uint)(*Transaction,error){
 		2、创建Output
 		3、给txid赋值
 		4、返回交易对象，
-	 */
+	*/
 	//创建区块链对象
-/*	bc, err2 := entity.NewBlockChain("")
+	bc, err2 := entity.NewBlockChain("")
 	if err2 != nil {
 		return nil, err2
 	}
+	//创建Input的准备工作
+	//a、
 	//余额  = 交易输出 - 交易输入  方法 *************还没写
-	output := bc.FindAllOutput(from)
+	output := bc.FindAllOutput(from) //txid  下标
 	input, err2 := bc.FindAllInput(from)
 	if err2 != nil {
-		return nil,err2
+		return nil, err2
 	}
-	//相减方法 *************还没写******************************
-*/
-	tx := Transaction{//实例化交易对象
+
+	//相减方法（抹除）
+	//寻找余额spendOutputs  = 所有的交易输出  - 所有的交易输入
+	/*spendOutputs := bc.FindSpendOutputs(output, input)
+
+	//判断余额是否够用
+	if spendOutputs == nil {
+		return nil,errors.New("没有可用的余额~")
+	}*/
+	//我们需要使用结构体来存储：txid  vout  面额  (UTXO结构体)
+	//寻找余额未消费的UTXO  （不妥）
+	spendOutputs, totalAmount := bc.FindSpendOutputs(output, input, amount) //返回值1：需要用到的所有的钱，返回值2：所有钱的金额（对应关系）
+	if spendOutputs == nil {
+		return nil, errors.New("没有可用的余额~")
+	}
+	//b、从所有的可用的交易输出中，取出一部分，判断是否足够（够用就行）
+	/*
+		//纪录余额
+		var totalAmount uint = 0
+		var totalNums int
+		for index, utxo := range utxos {
+			totalAmount += utxo.Value//(value 修改为uint类型)
+			if totalAmount >= amount { //如果余额大于要转的钱，说明足够，
+				totalNums = index +1
+				break //如果够了，那就不搜口袋看钱了
+			}
+		}*/
+	if totalAmount < amount { //如果余额小于要转的钱，说明不够，
+		return nil, errors.New("余额不足！！！")
+	}
+
+	//c、构建input （因为一笔交易可能会有多个input，[10,10,20,30]）
+	allInput := make([]Input, 0)          //这次交易要用到的所有交易输入 [10,10,20,30]
+	for _, output := range spendOutputs { //遍历XXX
+		input := NewInput(output.Txid, output.Index, []byte(from)) //参数三是from，是因为from要用这笔钱，所以是from的script
+		allInput = append(allInput, input)
+	}
+
+	//2、创建OutPut  。。。。
+
+	tx := Transaction{ //实例化交易对象
 		OutPut: nil,
-		Input: nil,
+		Input:  nil,
 	}
 	//序列化
-	byteTx,err := tx.Serialize()
+	byteTx, err := tx.Serialize()
 	if err != nil {
 		return nil, err
 	}
 	hahs := tools.GetSha256Hash(byteTx)
-	//3、
+	//3、给txid赋值
 	tx.TXid = hahs
-	//4、
-	return &tx,nil
+	//4、返回交易对象
+	return &tx, nil
 
 }

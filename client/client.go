@@ -158,7 +158,13 @@ func (cl *Cli) send()  {
 		fmt.Println(err.Error())
 		return
 	}*/
-	err = cl.bc.AddBlockToChain([]transaction.Transaction{*newTransaction})
+	/*
+		因为发起一笔交易，就会产生一笔coinBase交易，也就是记账人的奖励
+		注意：我们这边谁产生了这笔交易，谁就是记账人，就得到coinBase奖励
+	 */
+	base, err := transaction.NewCoinBase(*from)
+
+	err = cl.bc.AddBlockToChain([]transaction.Transaction{*newTransaction,*base})
 	if err != nil {
 		fmt.Println("区块添加失败！")
 		return

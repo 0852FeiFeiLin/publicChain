@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/boltdb/bolt"
@@ -228,9 +229,9 @@ func (bc *BlockChain) GetAllBlock() (blocks []*Block, err error) {
 }
 
 /*
-	用来寻找某个人的所有收入，交易输出
+	用来寻找某个人的所有收入，交易输出 []UTXO
 */
-func (bc *BlockChain) FindAllOutput(from string) map[string][]int { //allOutput["txid"] = [1,2...]
+func (bc *BlockChain) FindAllOutput(from string) []transaction.UTXO { //allOutput["txid"] = [1,2...]
 	/*
 		1、先找到区块链中的所有区块，
 		2、然后从区块中找到所有的交易，
@@ -250,8 +251,8 @@ func (bc *BlockChain) FindAllOutput(from string) map[string][]int { //allOutput[
 		value：[]int -->一笔交易中一个人可能有多个收入，所以是[]切片类型，表示收入的位置下标
 		allOutput["txid"] = [1,2...]
 	*/
-	allOutPut := make(map[string][]int)
-
+//	allOutPut := make(map[string][]int)
+	allOutPuts := []transaction.UTXO{}  //UTXO结构体切片
 	//2、遍历每一个区块，
 	for _, block := range blocks {
 		//遍历找到区块中所有的交易
@@ -266,7 +267,7 @@ func (bc *BlockChain) FindAllOutput(from string) map[string][]int { //allOutput[
 						c、加入到容器中allOutput
 					*/
 					//a、
-					outIds := allOutPut[string(tx.TXid)]
+					/*outIds := allOutPut[string(tx.TXid)]
 					//b、如果这笔交易没有的存入过容器中，那就加入; 如果有的话，那就追加，修改
 					if outIds == nil || len(outIds) == 0 {
 						//存入
@@ -276,13 +277,16 @@ func (bc *BlockChain) FindAllOutput(from string) map[string][]int { //allOutput[
 						//在此之前，此笔交易已经有过存入了，那就追加
 						outIds = append(outIds, outIndex)
 						allOutPut[string(tx.TXid)] = outIds
-					}
+					}*/
+					//实例化utxo，然后放到utxo切片
+					utxo := transaction.NewUTXO(tx.TXid,outIndex,&output)
+					allOutPuts = append(allOutPuts, utxo)
 				}
 			}
 		}
 	}
-	//返回某个人的所有的收入，交易输出。output，
-	return allOutPut
+	//返回某个人的所有的收入，交易输出。output --->  修改为返回未消费的交易输出UTXO
+	return allOutPuts
 }
 
 /*
@@ -317,4 +321,94 @@ func (bc *BlockChain) FindAllInput(from string) ([]transaction.Input, error) { /
 	}
 	//返回from的所有的交易输入 ,inputs
 	return allInPut, nil
+}
+
+/*
+	寻找花费的交易输出，返回余额（未消费的交易输出）  FindUTXO
+ 	里面功能：
+		去掉已经用掉的交易输出（交易输出抹除交易输入），
+		得到没消费的交易输出，并返回
+	注意：这个废弃了，因为这个找到的指示所有的交易输出，每次交易，我们不需要找这么多，只需要找到够消费的交易输出就行。
+		并且他还是map存储的，不需要，里面没余额
+*/
+func (bc *BlockChain) FindSpendOutputsXXX(outputs map[string][]int, inputs []transaction.Input) map[string][]int {
+	//所有的收入output  -  所有的消费input
+	alloutputs := make(map[string] []int)
+	//1、拿到每一笔收入，去跟消费比较
+	for key, outIds := range outputs { //
+		/*
+			key ---> txid 1009
+			value ---> []int{1,2}   这笔交易的所有交易输出
+		*/
+		for _, outId := range outIds { //根据这里的每一比较交易输出去和每一笔交易输入(循环)进行比较，进行抹除
+			//2、拿到每一笔消费
+			for index, input := range inputs {
+				//1、判断txid是否相等  (第一个for循环的key就是txid)
+				//2、判断下标是否相等，也就会第几笔(第二个for循环遍历出来的就是outid)
+				if string(input.TXid) == key && input.VOut == outId{
+					continue;//注意：找到了，已经消费，退出，遍历下一个
+				}
+				//注意：如果交易输出循环完了还是没有，代表没有被使用。就是这笔钱没被使用
+				if index == len(inputs){
+					//index 就是循环的下标，然后len(inputs) 就是交易输入，说明没被消费
+					ids := alloutputs[key] //根据key返回value.
+					//如果ids为空，代表第一次添加
+					if ids == nil || len(ids) == 0 {
+						alloutputs[key] = []int{outId}
+					}else{
+						ids = append(ids,outId)
+						alloutputs[key] = ids;
+					}
+				}
+
+			}
+
+		}
+
+	}
+	return alloutputs
+}
+
+/*
+	寻找需要用到的部分交易输出、部分交易输出的金额
+ */
+func (bc *BlockChain) FindSpendOutputs(outputs []transaction.UTXO, inputs []transaction.Input,amount uint)( []transaction.UTXO,uint) {
+	//[10,10,20,30,10]  [50]
+	var allOutPuts []transaction.UTXO
+	//所有收入 - 所有支出
+	for _, input := range inputs { //循环位置没关系，只是输入输出进行对比
+		for index, utxo := range outputs {
+			//判断txid 和 vout 是否一致，如果一致说明这笔钱已经花费了，那就在切片UTXO[]中去掉，
+			if bytes.Compare(input.TXid,utxo.Txid) ==0 && input.VOut == utxo.Index {
+				/*
+					utxo：[1,2,3,4] input：[2]（有相等）  ---->
+					那就利用截取，实现utxo中去掉：utxo[1,3,4]
+				*/
+
+				//删除utxo（前毕后开）
+				outputs = append(outputs[:index],outputs[index+1:]...)
+				break
+			}
+		}
+	}
+	//上面所有： ----> 找到所有的未花费的交易输出
+
+	//下面  -----> 找到需要花费的部分交易输出[] 和金额
+	var  totalAmount uint = 0  	//纪录本次交易需要用到的金额
+	for _, output := range outputs {
+		totalAmount += output.Value  //10 + 10 + 20 + 30
+		//改变：只需要找够满足这次转账金额的余额即可
+		allOutPuts = append(allOutPuts,output) //[10,10,20,30]
+		if totalAmount >= amount{  //余额大于转的钱，那就不找了
+			break
+		}
+	}
+
+	//返回需要花费的部分交易输出和金额  [10,10,20,30,10],  [70]
+	return allOutPuts,totalAmount
+	/*
+		allOutPuts：用来存储本次交易需要用到的outPut    [10,10,20,30]
+		totalAmount：本次交易form需要给to的金额    70
+		注意：上面两个是对应的
+	 */
 }
