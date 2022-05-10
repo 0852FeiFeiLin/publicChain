@@ -15,11 +15,11 @@ package test
 *//*
 func main() {
 	//创建区块
-	block1 := entity.NewBlock([]byte("第一个区块"), nil) //交易信息，上一个区块
+	block1 := block.NewBlock([]byte("第一个区块"), nil) //交易信息，上一个区块
 	fmt.Println(string(block1.Data))
 
 	//创建区块链（必须要有第一个创世区块）
-	bc := entity.NewBlockChain([]byte("创世区块"))  //交易信息
+	bc := block.NewBlockChain([]byte("创世区块"))  //交易信息
 	fmt.Println(string(bc.Blocks[0].Data))  //通过索引获取具体的区块
 
 	//持续添加区块

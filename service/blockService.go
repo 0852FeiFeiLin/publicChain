@@ -14,9 +14,9 @@ package service
 	对应client里面的所有功能
 >>>>>>> 1d33b38 (1.0)
 *//*
-func NewBlock(data []byte,prevHash []byte) *entity.Block { //交易信息，。上一个区块hash
+func NewBlock(data []byte,prevHash []byte) *block.Block { //交易信息，。上一个区块hash
 	//实例化结构体，创建区块
-	block := entity.Block{
+	block := block.Block{
 		TimeStamp: time.Now().Unix(),
 		PrevHash:  prevHash,
 		Data:      data,

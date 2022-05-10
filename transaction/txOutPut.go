@@ -30,3 +30,10 @@ func (o *OutPut) IsUnlock(from string) bool { //判断在这笔交易能不能�
 	return bytes.Compare(o.ScriptPubKey,[]byte(from)) == 0
 	//相等返回值就是0.返回true、如果不是0代表不相等，那么就返回false
 }
+
+/*
+	实例化Output
+ */
+func NewOutPut(value uint,scriptPubkey []byte)OutPut{
+	return OutPut{Value: value,ScriptPubKey: scriptPubkey}
+}

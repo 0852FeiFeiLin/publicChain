@@ -1,4 +1,4 @@
-package entity
+package block
 
 import (
 	"bytes"
@@ -251,8 +251,8 @@ func (bc *BlockChain) FindAllOutput(from string) []transaction.UTXO { //allOutpu
 		value：[]int -->一笔交易中一个人可能有多个收入，所以是[]切片类型，表示收入的位置下标
 		allOutput["txid"] = [1,2...]
 	*/
-//	allOutPut := make(map[string][]int)
-	allOutPuts := []transaction.UTXO{}  //UTXO结构体切片
+	//	allOutPut := make(map[string][]int)
+	allOutPuts := []transaction.UTXO{} //UTXO结构体切片
 	//2、遍历每一个区块，
 	for _, block := range blocks {
 		//遍历找到区块中所有的交易
@@ -279,7 +279,7 @@ func (bc *BlockChain) FindAllOutput(from string) []transaction.UTXO { //allOutpu
 						allOutPut[string(tx.TXid)] = outIds
 					}*/
 					//实例化utxo，然后放到utxo切片
-					utxo := transaction.NewUTXO(tx.TXid,outIndex,&output)
+					utxo := transaction.NewUTXO(tx.TXid, outIndex, &output)
 					allOutPuts = append(allOutPuts, utxo)
 				}
 			}
@@ -333,7 +333,7 @@ func (bc *BlockChain) FindAllInput(from string) ([]transaction.Input, error) { /
 */
 func (bc *BlockChain) FindSpendOutputsXXX(outputs map[string][]int, inputs []transaction.Input) map[string][]int {
 	//所有的收入output  -  所有的消费input
-	alloutputs := make(map[string] []int)
+	alloutputs := make(map[string][]int)
 	//1、拿到每一笔收入，去跟消费比较
 	for key, outIds := range outputs { //
 		/*
@@ -345,19 +345,19 @@ func (bc *BlockChain) FindSpendOutputsXXX(outputs map[string][]int, inputs []tra
 			for index, input := range inputs {
 				//1、判断txid是否相等  (第一个for循环的key就是txid)
 				//2、判断下标是否相等，也就会第几笔(第二个for循环遍历出来的就是outid)
-				if string(input.TXid) == key && input.VOut == outId{
-					continue;//注意：找到了，已经消费，退出，遍历下一个
+				if string(input.TXid) == key && input.VOut == outId {
+					continue //注意：找到了，已经消费，退出，遍历下一个
 				}
 				//注意：如果交易输出循环完了还是没有，代表没有被使用。就是这笔钱没被使用
-				if index == len(inputs){
+				if index == len(inputs) {
 					//index 就是循环的下标，然后len(inputs) 就是交易输入，说明没被消费
 					ids := alloutputs[key] //根据key返回value.
 					//如果ids为空，代表第一次添加
 					if ids == nil || len(ids) == 0 {
 						alloutputs[key] = []int{outId}
-					}else{
-						ids = append(ids,outId)
-						alloutputs[key] = ids;
+					} else {
+						ids = append(ids, outId)
+						alloutputs[key] = ids
 					}
 				}
 
@@ -371,22 +371,22 @@ func (bc *BlockChain) FindSpendOutputsXXX(outputs map[string][]int, inputs []tra
 
 /*
 	寻找需要用到的部分交易输出、部分交易输出的金额
- */
-func (bc *BlockChain) FindSpendOutputs(outputs []transaction.UTXO, inputs []transaction.Input,amount uint)( []transaction.UTXO,uint) {
+*/
+func (bc *BlockChain) FindSpendOutputs(outputs []transaction.UTXO, inputs []transaction.Input, amount uint) ([]transaction.UTXO, uint) {
 	//[10,10,20,30,10]  [50]
 	var allOutPuts []transaction.UTXO
 	//所有收入 - 所有支出
 	for _, input := range inputs { //循环位置没关系，只是输入输出进行对比
 		for index, utxo := range outputs {
 			//判断txid 和 vout 是否一致，如果一致说明这笔钱已经花费了，那就在切片UTXO[]中去掉，
-			if bytes.Compare(input.TXid,utxo.Txid) ==0 && input.VOut == utxo.Index {
+			if bytes.Compare(input.TXid, utxo.Txid) == 0 && input.VOut == utxo.Index {
 				/*
 					utxo：[1,2,3,4] input：[2]（有相等）  ---->
 					那就利用截取，实现utxo中去掉：utxo[1,3,4]
 				*/
 
 				//删除utxo（前毕后开）
-				outputs = append(outputs[:index],outputs[index+1:]...)
+				outputs = append(outputs[:index], outputs[index+1:]...)
 				break
 			}
 		}
@@ -394,21 +394,93 @@ func (bc *BlockChain) FindSpendOutputs(outputs []transaction.UTXO, inputs []tran
 	//上面所有： ----> 找到所有的未花费的交易输出
 
 	//下面  -----> 找到需要花费的部分交易输出[] 和金额
-	var  totalAmount uint = 0  	//纪录本次交易需要用到的金额
+	var totalAmount uint = 0 //纪录本次交易需要用到的金额
 	for _, output := range outputs {
-		totalAmount += output.Value  //10 + 10 + 20 + 30
+		totalAmount += output.Value //10 + 10 + 20 + 30
 		//改变：只需要找够满足这次转账金额的余额即可
-		allOutPuts = append(allOutPuts,output) //[10,10,20,30]
-		if totalAmount >= amount{  //余额大于转的钱，那就不找了
+		allOutPuts = append(allOutPuts, output) //[10,10,20,30]
+		if totalAmount >= amount {              //余额大于转的钱，那就不找了
 			break
 		}
 	}
 
 	//返回需要花费的部分交易输出和金额  [10,10,20,30,10],  [70]
-	return allOutPuts,totalAmount
+	return allOutPuts, totalAmount
 	/*
 		allOutPuts：用来存储本次交易需要用到的outPut    [10,10,20,30]
 		totalAmount：本次交易form需要给to的金额    70
 		注意：上面两个是对应的
-	 */
+	*/
+}
+
+/*
+	创建交易
+		参数:(交易发送者，接受者，金额)
+
+*/
+//把准备工作移到这里
+func (bc *BlockChain) NewTransaction(from, to string, amount uint) (*transaction.Transaction, error) {
+	/*
+		1、创建Input
+			a、在已经有的交易中，去寻找可用的交易输出，
+				怎么找？
+					思路：
+						1、先找到区块链中的所有区块，
+						2、然后从区块中找到所有的交易，
+						3、然后找到所有的Output，
+						4、然后筛选出所有和from有关的Output。（交易输入同上)
+				余额 = 所有的收入（交易输出） - 所有的支出（交易输入）
+
+			b、从所有的可用的交易输出中，取出一部分，判断是否足够（够用就行）
+			c、构建Input
+		2、创建Output
+		3、给txid赋值
+		4、返回交易对象，
+	*/
+	//创建区块链对象
+	//创建Input的准备工作
+	//a、
+	//余额  = 交易输出 - 交易输入  方法 *************还没写
+	output := bc.FindAllOutput(from) //txid  下标
+	input, err2 := bc.FindAllInput(from)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//相减方法（抹除）
+	//寻找余额spendOutputs  = 所有的交易输出  - 所有的交易输入
+	/*spendOutputs := bc.FindSpendOutputs(output, input)
+
+	//判断余额是否够用
+	if spendOutputs == nil {
+		return nil,errors.New("没有可用的余额~")
+	}*/
+	//我们需要使用结构体来存储：txid  vout  面额  (UTXO结构体)
+	//寻找余额未消费的UTXO  （不妥）
+	spendOutputs, totalAmount := bc.FindSpendOutputs(output, input, amount) //返回值1：需要用到的所有的钱，返回值2：所有钱的金额（对应关系）
+	if spendOutputs == nil {
+		return nil, errors.New("没有可用的余额~")
+	}
+	//b、从所有的可用的交易输出中，取出一部分，判断是否足够（够用就行）
+	/*
+		//纪录余额
+		var totalAmount uint = 0
+		var totalNums int
+		for index, utxo := range utxos {
+			totalAmount += utxo.Value//(value 修改为uint类型)
+			if totalAmount >= amount { //如果余额大于要转的钱，说明足够，
+				totalNums = index +1
+				break //如果够了，那就不搜口袋看钱了
+			}
+		}*/
+	if totalAmount < amount { //如果余额小于要转的钱，说明不够，
+		return nil, errors.New("余额不足！！！")
+	}
+	//调用transaction里面的创建交易方法，然后返回交易，
+	newTransaction, err := transaction.NewTransaction(from, to, amount, spendOutputs)
+	if err != nil {
+		return nil, err
+	}
+	//返回交易
+	return newTransaction, nil
 }

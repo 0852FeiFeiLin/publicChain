@@ -2,7 +2,7 @@ package test
 
 import (
 	"fmt"
-	"publicChain/entity"
+	"publicChain/block"
 )
 
 /**
@@ -23,7 +23,7 @@ import (
 			查看区块链信息
 */
 func main() {
-	chain, err := entity.NewBlockChain([]byte("创世区块"))
+	chain, err := block.NewBlockChain([]byte("创世区块"))
 	defer chain.DB.Close()
 	if err != nil {
 		fmt.Println("失败", err.Error())

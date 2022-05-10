@@ -13,7 +13,7 @@ package test
 	3、查看区块的随机数
 */
 func main() {/*//创建区块链
-	bc := entity.NewBlockChain([]byte("创世区块"))
+	bc := block.NewBlockChain([]byte("创世区块"))
 	fmt.Println(string(bc.Blocks[0].Data))
 
 	//添加区块到区块链（在newBlock里面实现pow算法）

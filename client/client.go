@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"publicChain/entity"
+	"publicChain/block"
 	"publicChain/tools"
 	"publicChain/transaction"
 )
@@ -23,12 +23,12 @@ import (
 */
 type Cli struct {
 	//区块链
-	bc *entity.BlockChain
+	bc *block.BlockChain
 }
 
 func (cl *Cli) Run() {
 	//使用区块链对象
-	chain, _ := entity.NewBlockChain("zhang")
+	chain, _ := block.NewBlockChain("zhang")
 	defer chain.DB.Close()
 	//并赋值给client客户端，不然使用的时候会报空指针异常
 	cl.bc = chain
@@ -48,7 +48,7 @@ func (cl *Cli) Run() {
 		cl.createChain()
 	//功能2
 	/*case "addblock":
-		cl.addBlock()*/
+	cl.addBlock()*/
 	case "send":
 		cl.send()
 	//功能3
@@ -97,16 +97,17 @@ func (cl *Cli) createChain() {
 		fmt.Println("区块链已经存在，不能再创建了...")
 		return
 	}
-	_, err := entity.NewBlockChain(*address)
+	_, err := block.NewBlockChain(*address)
 	if err != nil {
 		fmt.Println("创建区块链失败")
 		return
 	}
 	fmt.Println("区块链创建成功")
 }
+
 /*
 	没用了，添加区块修改成了发起交易的方法  sendTransaction
- */
+*/
 /*func (cl *Cli) addBlock() {
 	addBlock := flag.NewFlagSet("addblock", flag.ExitOnError)
 	//先判断区块链是否存在，
@@ -133,27 +134,27 @@ func (cl *Cli) createChain() {
 	添加区块  --->  发起交易
 		想添加区块到区块链中，首先需要有交易，那我们就需要先发起交易，产生一笔交易(收钱人 给钱人 给钱的金额)
 		main.exe send  --from "zhang" --to  “li” --amount 50
- */
-func (cl *Cli) send()  {
+*/
+func (cl *Cli) send() {
 	/*
 		1、创建一笔交易transaction
 		2、把这笔交易存储到区块中，并保存到区块链中，
-	 */
+	*/
 	sendflag := flag.NewFlagSet("send", flag.ExitOnError)
-	from := sendflag.String("from","","交易发起者的地址")
-	to := sendflag.String("to","","交易接受者的地址")
+	from := sendflag.String("from", "", "交易发起者的地址")
+	to := sendflag.String("to", "", "交易接受者的地址")
 	//无符号，正整数，不能是负数
-	amount := sendflag.Uint("amount",0,"交易的金额")
+	amount := sendflag.Uint("amount", 0, "交易的金额")
 	//解析
 	sendflag.Parse(os.Args[2:])
 	//1、创建普通交易
-	newTransaction,err := transaction.NewTransaction(*from, *to, *amount)
+	newTransaction, err := cl.bc.NewTransaction(*from, *to, *amount)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 	//2、把交易存储到区块中，并保存到区块链中
-	/*chain, err := entity.NewBlockChain("")
+	/*chain, err := block.NewBlockChain("")
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -161,10 +162,10 @@ func (cl *Cli) send()  {
 	/*
 		因为发起一笔交易，就会产生一笔coinBase交易，也就是记账人的奖励
 		注意：我们这边谁产生了这笔交易，谁就是记账人，就得到coinBase奖励
-	 */
+	*/
 	base, err := transaction.NewCoinBase(*from)
 
-	err = cl.bc.AddBlockToChain([]transaction.Transaction{*newTransaction,*base})
+	err = cl.bc.AddBlockToChain([]transaction.Transaction{*newTransaction, *base})
 	if err != nil {
 		fmt.Println("区块添加失败！")
 		return
@@ -190,7 +191,7 @@ func (cl *Cli) printChain() {
 		fmt.Printf("Data: %d\n", len(b.Txs))
 		//遍历切片集合
 		for _, tx := range b.Txs {
-			fmt.Printf("\t交易hash:%x\n",tx.TXid)
+			fmt.Printf("\t交易hash:%x\n", tx.TXid)
 			//fmt.Printf("\t交易输入:%x\n",tx.Input)
 			//fmt.Printf("\t交易输出:%s\n",string(tx.OutPut[0].ScriptPubKey))
 		}
@@ -232,11 +233,12 @@ func (cl *Cli) getLastBlock() {
 	fmt.Printf("Data: %d\n", len(blocks[0].Txs))
 	//遍历切片集合
 	for _, tx := range blocks[0].Txs {
-		fmt.Printf("\t交易hash:%x\n",tx.TXid)
+		fmt.Printf("\t交易hash:%x\n", tx.TXid)
 	}
 
 	fmt.Printf("Hash: %x\n", blocks[0].NowHash)
 }
+
 /*
 	获取第一个区块信息
 */
@@ -256,11 +258,12 @@ func (cl *Cli) getFirstBlock() {
 	fmt.Printf("Prev. hash: %x\n", blocks[len(blocks)-1].PrevHash)
 	fmt.Printf("Data: %d\n", len(blocks[len(blocks)-1].Txs))
 	for _, tx := range blocks[len(blocks)-1].Txs {
-		fmt.Printf("\t交易hash:%x\n",tx.TXid)
+		fmt.Printf("\t交易hash:%x\n", tx.TXid)
 	}
 
 	fmt.Printf("Hash: %x\n", blocks[len(blocks)-1].NowHash)
 }
+
 //获取单个区块的信息
 func (cl *Cli) getBlockInfo() {
 	//先判断区块链是否存在，
@@ -306,4 +309,3 @@ func (cl *Cli) help() {
 	fmt.Println("\t \t getlastblock")
 	fmt.Println()
 }
-
