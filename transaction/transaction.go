@@ -88,7 +88,24 @@ func NewCoinBase(address string) (*Transaction, error) { //address 是矿工的�
 		参数:(交易发送者，接受者，金额)
 */
 func NewTransaction(from, to string, amount uint,spendOutputs []UTXO) (*Transaction, error) {
+	/*
+		1、创建Input
+			a、在已经有的交易中，去寻找可用的交易输出，
+				怎么找？
+					思路：
+						1、先找到区块链中的所有区块，
+						2、然后从区块中找到所有的交易，
+						3、然后找到所有的Output，
+						4、然后筛选出所有和from有关的Output。（交易输入同上)
+				余额 = 所有的收入（交易输出） - 所有的支出（交易输入）
 
+			b、从所有的可用的交易输出中，取出一部分，判断是否足够（够用就行）
+			c、构建Input
+		2、创建Output
+		3、给txid赋值
+		4、返回交易对象，
+	*/
+	//1、创建Input
 	//c、构建input （因为一笔交易可能会有多个input，[10,10,20,30]）
 	allInput := make([]Input, 0) //这次交易要用到的所有交易输入 [10,10,20,30]
 	for _, output := range spendOutputs {
@@ -128,9 +145,9 @@ func NewTransaction(from, to string, amount uint,spendOutputs []UTXO) (*Transact
 		}
 
 	}
-
+	//3、给txid赋值
 	tx := Transaction{ //实例化交易对象
-		OutPut: nil,
+		OutPut: allOutPut,
 		Input:  allInput,
 	}
 	//序列化
@@ -139,9 +156,7 @@ func NewTransaction(from, to string, amount uint,spendOutputs []UTXO) (*Transact
 		return nil, err
 	}
 	hahs := tools.GetSha256Hash(byteTx)
-	//3、给txid赋值
 	tx.TXid = hahs
 	//4、返回交易对象
 	return &tx, nil
-
 }

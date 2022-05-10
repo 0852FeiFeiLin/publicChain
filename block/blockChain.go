@@ -457,26 +457,17 @@ func (bc *BlockChain) NewTransaction(from, to string, amount uint) (*transaction
 	}*/
 	//我们需要使用结构体来存储：txid  vout  面额  (UTXO结构体)
 	//寻找余额未消费的UTXO  （不妥）
-	spendOutputs, totalAmount := bc.FindSpendOutputs(output, input, amount) //返回值1：需要用到的所有的钱，返回值2：所有钱的金额（对应关系）
+
+	//返回值1：需要用到的所有的钱，返回值2：所有钱的金额（对应关系）
+	spendOutputs, totalAmount := bc.FindSpendOutputs(output, input, amount)
 	if spendOutputs == nil {
 		return nil, errors.New("没有可用的余额~")
 	}
 	//b、从所有的可用的交易输出中，取出一部分，判断是否足够（够用就行）
-	/*
-		//纪录余额
-		var totalAmount uint = 0
-		var totalNums int
-		for index, utxo := range utxos {
-			totalAmount += utxo.Value//(value 修改为uint类型)
-			if totalAmount >= amount { //如果余额大于要转的钱，说明足够，
-				totalNums = index +1
-				break //如果够了，那就不搜口袋看钱了
-			}
-		}*/
-	if totalAmount < amount { //如果余额小于要转的钱，说明不够，
+	if totalAmount < amount { //如果余额小于要转的钱，说明不够，直接终止本次交易
 		return nil, errors.New("余额不足！！！")
 	}
-	//调用transaction里面的创建交易方法，然后返回交易，
+	//调用transaction里面的创建交易方法，然后返回交易，(判断的也在里面)
 	newTransaction, err := transaction.NewTransaction(from, to, amount, spendOutputs)
 	if err != nil {
 		return nil, err
