@@ -47,8 +47,6 @@ func (cl *Cli) Run() {
 	case "createblockchain":
 		cl.createChain()
 	//功能2
-	/*case "addblock":
-	cl.addBlock()*/
 	case "send":
 		cl.send()
 	//功能3
@@ -66,8 +64,12 @@ func (cl *Cli) Run() {
 	//功能7
 	case "getfirstblock":
 		cl.getFirstBlock()
+	//功能8
 	case "getallblock":
 		cl.getAllBlock()
+	//功能9
+	case "getbalance":
+		cl.getBalance()
 	//功能n
 	case "help":
 		cl.help()
@@ -106,31 +108,6 @@ func (cl *Cli) createChain() {
 }
 
 /*
-	没用了，添加区块修改成了发起交易的方法  sendTransaction
-*/
-/*func (cl *Cli) addBlock() {
-	addBlock := flag.NewFlagSet("addblock", flag.ExitOnError)
-	//先判断区块链是否存在，
-	exits := tools.FileExits("blockchain.db")
-	if !exits {
-		fmt.Println("区块链不存在，请创建区块链后添加区块！")
-		return
-	}
-	//获得参数
-	data := addBlock.String("data", "", "区块的交易信息")
-	//解析
-	addBlock.Parse(os.Args[2:])
-	//调用方法
-	err := cl.bc.AddBlockToChain([]byte(*data))
-	//判断返回值
-	if err != nil {
-		fmt.Println("添加区块失败！")
-		return
-	}
-	fmt.Println("添加区块成功")
-}*/
-
-/*
 	添加区块  --->  发起交易
 		想添加区块到区块链中，首先需要有交易，那我们就需要先发起交易，产生一笔交易(收钱人 给钱人 给钱的金额)
 		main.exe send  --from "zhang" --to  “li” --amount 50
@@ -163,7 +140,7 @@ func (cl *Cli) send() {
 		因为发起一笔交易，就会产生一笔coinBase交易，也就是记账人的奖励
 		注意：我们这边谁产生了这笔交易，谁就是记账人，就得到coinBase奖励
 	*/
-	base, err := transaction.NewCoinBase(*from)
+	base, err := cl.bc.NewCoinBase(*from)
 
 	err = cl.bc.AddBlockToChain([]transaction.Transaction{*newTransaction, *base})
 	if err != nil {
@@ -173,6 +150,7 @@ func (cl *Cli) send() {
 	fmt.Println("区块添加成功！")
 }
 
+//打印区块链
 func (cl *Cli) printChain() {
 	//先判断区块链是否存在，
 	exits := tools.FileExits("blockchain.db")
@@ -187,16 +165,29 @@ func (cl *Cli) printChain() {
 		return
 	}
 	for _, b := range blocks {
-		fmt.Printf(":Prev. hash: %x\n", b.PrevHash)
-		fmt.Printf("Data: %d\n", len(b.Txs))
+		fmt.Printf("PrevHash: %x\n", b.PrevHash)
+		fmt.Printf("区块Hash: %x\n", b.NowHash)
+		fmt.Printf("DataSize: %d\n", len(b.Txs)) //交易数目
 		//遍历切片集合
 		for _, tx := range b.Txs {
+			//交易hash值
 			fmt.Printf("\t交易hash:%x\n", tx.TXid)
-			//fmt.Printf("\t交易输入:%x\n",tx.Input)
+
+			//有几个交易输入
+			fmt.Printf("\t\t有%d个交易输入:\n", len(tx.Input))
+			for i, input := range tx.Input {
+				fmt.Printf("\t\t\t消费%d,来自%x,下标%d\n", i, input.TXid, input.VOut)
+			}
+
+			//有几个交易输出
+			fmt.Printf("\t\t有%d个交易输出:\n", len(tx.OutPut))
+			for i, output := range tx.OutPut {
+				//
+				fmt.Printf("\t\t\t收入%d,金额%d,属于%s\n", i, output.Value, string(output.ScriptPubKey))
+			}
+
 			//fmt.Printf("\t交易输出:%s\n",string(tx.OutPut[0].ScriptPubKey))
 		}
-		fmt.Printf("Hash: %x\n", b.NowHash)
-		fmt.Println()
 	}
 	fmt.Println("遍历完成！！")
 }
@@ -229,14 +220,29 @@ func (cl *Cli) getLastBlock() {
 		return
 	}
 	//最后一个切片对象也就是最后一个区块
-	fmt.Printf("Prev. hash: %x\n", blocks[0].PrevHash)
-	fmt.Printf("Data: %d\n", len(blocks[0].Txs))
+	fmt.Printf("PrevHash: %x\n", blocks[0].PrevHash)
+	fmt.Printf("区块Hash: %x\n", blocks[0].NowHash)
+	fmt.Printf("DataSize: %d\n", len(blocks[0].Txs))
+
 	//遍历切片集合
 	for _, tx := range blocks[0].Txs {
+		//交易hash值
 		fmt.Printf("\t交易hash:%x\n", tx.TXid)
+
+		//有几个交易输入
+		fmt.Printf("\t\t有%d个交易输入:\n", len(tx.Input))
+		for i, input := range tx.Input {
+			fmt.Printf("\t\t\t消费%d,来自%x,下标%d\n", i, input.TXid, input.VOut)
+		}
+
+		//有几个交易输出
+		fmt.Printf("\t\t有%d个交易输出:\n", len(tx.OutPut))
+		for i, output := range tx.OutPut {
+			//
+			fmt.Printf("\t\t\t收入%d,金额%d,属于%s\n", i, output.Value, string(output.ScriptPubKey))
+		}
 	}
 
-	fmt.Printf("Hash: %x\n", blocks[0].NowHash)
 }
 
 /*
@@ -255,13 +261,26 @@ func (cl *Cli) getFirstBlock() {
 		return
 	}
 	//最后一个切片对象也就是最后一个区块
-	fmt.Printf("Prev. hash: %x\n", blocks[len(blocks)-1].PrevHash)
-	fmt.Printf("Data: %d\n", len(blocks[len(blocks)-1].Txs))
+	fmt.Printf("PrevHash: %x\n", blocks[len(blocks)-1].PrevHash)
+	fmt.Printf("Hash: %x\n", blocks[len(blocks)-1].NowHash)
+	fmt.Printf("DataSize: %d\n", len(blocks[len(blocks)-1].Txs))
 	for _, tx := range blocks[len(blocks)-1].Txs {
+		//交易hash值
 		fmt.Printf("\t交易hash:%x\n", tx.TXid)
+		//有几个交易输入
+		fmt.Printf("\t\t有%d个交易输入:\n", len(tx.Input))
+		for i, input := range tx.Input {
+			fmt.Printf("\t\t\t消费%d,来自%x,下标%d\n", i, input.TXid, input.VOut)
+		}
+
+		//有几个交易输出
+		fmt.Printf("\t\t有%d个交易输出:\n", len(tx.OutPut))
+		for i, output := range tx.OutPut {
+			//
+			fmt.Printf("\t\t\t收入%d,金额%d,属于%s\n", i, output.Value, string(output.ScriptPubKey))
+		}
 	}
 
-	fmt.Printf("Hash: %x\n", blocks[len(blocks)-1].NowHash)
 }
 
 //获取单个区块的信息
@@ -295,6 +314,24 @@ func (cl *Cli) getAllBlock() {
 		return
 	}
 	fmt.Println("获取到的区块对象个数：", len(blocks))
+}
+
+//查询余额 getbalance --address "zhang"
+func (cl *Cli) getBalance() {
+	//先判断区块链是否存在，
+	exits := tools.FileExits("blockchain.db")
+	if !exits {
+		fmt.Println("区块链不存在！")
+		return
+	}
+	getbalance := flag.NewFlagSet("getbalance", flag.ExitOnError)
+	from := getbalance.String("address", "", "需要查询余额的地址")
+	getbalance.Parse(os.Args[2:])
+	balance, err := cl.bc.GetUTXO(*from)
+	if err != nil {
+		return
+	}
+	fmt.Printf("%s的余额为：%d\n", *from, balance)
 }
 
 func (cl *Cli) help() {

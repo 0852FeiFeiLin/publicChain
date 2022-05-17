@@ -17,10 +17,11 @@ package transaction
 type UTXO struct {
 	Txid    []byte
 	Index   int
-	*OutPut //匿名字段：作用就会让UTXo结构体默认包含OutPut中的两个字段（scriptPub属于谁、value面额）
+	OutPut //匿名字段：作用就会让UTXo结构体默认包含OutPut中的两个字段（scriptPub属于谁、value面额）
+	//不要使用这个引用传递值，不然就会是引用原来的值 所以我们把*号去掉就行了
 }
 
 //实例化UTXO结构体方法,并返回Utxo
-func NewUTXO(txid []byte, index int, output *OutPut) UTXO {
+func NewUTXO(txid []byte, index int, output OutPut) UTXO {
 	return UTXO{txid, index, output}
 }

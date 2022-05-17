@@ -56,7 +56,7 @@ func (txs *Transaction) DeSerialize(txsByte []byte) (*Transaction, error) {
 }
 
 /*
-	coinbase交易
+	coinbase交易  移动到了blockChain中
 */
 func NewCoinBase(address string) (*Transaction, error) { //address 是矿工的账户
 	//实例化交易对象
@@ -73,25 +73,33 @@ func NewCoinBase(address string) (*Transaction, error) { //address 是矿工的�
 			//正常的交易，是有两个交易输出，也就是两个大括号{}，{}代表两个交易输出
 		},
 	}
+	//先把交易对象序列化，
 	txsByte, err := cb.Serialize()
+	//计算出hash值，然后当作txid
+	hash := tools.GetSha256Hash(txsByte)
 	if err != nil {
 		return nil, err
 	}
-	//把交易对象进行hash计算，然后当作txid
-	cb.TXid = txsByte
+	cb.TXid = hash
 	//返回的是coinBase交易对象
 	return &cb, nil
 }
 
 /*
+	系统奖励的挖矿奖励费  50 --> 25 --> 12.5 --> 6.25（现今）  四年减半 (假设我们模拟的系统奖励是交易金额的20%)
+ */
+func GetCoinBase(address string)(*Transaction ,error){
+	return nil,nil
+}
+/*
 	创建交易,返回交易
-		参数:(交易发送者，接受者，金额)
+		参数:(交易发送者，接受者，金额，需要花费的交易输出)
 */
 func NewTransaction(from, to string, amount uint,spendOutputs []UTXO) (*Transaction, error) {
 	/*
 		1、创建Input
 			a、在已经有的交易中，去寻找可用的交易输出，
-				怎么找？
+				怎么找？ （全部在blockChain的NewTranaction中，找到spedAmount）
 					思路：
 						1、先找到区块链中的所有区块，
 						2、然后从区块中找到所有的交易，

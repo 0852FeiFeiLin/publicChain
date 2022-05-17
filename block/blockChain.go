@@ -49,7 +49,8 @@ func NewBlockChain(address string) (*BlockChain, error) { //address是地址，�
 		bucket := tx.Bucket([]byte(BUCKET_BLOCK))
 		if bucket == nil { //如果桶为空，说明还没有区块链，就要创建区块链  桶1 = 区块链
 			//获取到创世区块,(1.调用方法。2.传入coinbase交易)
-			coinbase, _ := transaction.NewCoinBase(address) //放入交易包里面。功能单一
+			var bc BlockChain
+			coinbase, _ := bc.NewCoinBase(address) //放入交易包里面。功能单一
 			genesic := NewGenesisBlock(*coinbase)
 			//创建第一个桶1，存储区块
 			bk, err := tx.CreateBucket([]byte(BUCKET_BLOCK))
@@ -279,7 +280,7 @@ func (bc *BlockChain) FindAllOutput(from string) []transaction.UTXO { //allOutpu
 						allOutPut[string(tx.TXid)] = outIds
 					}*/
 					//实例化utxo，然后放到utxo切片
-					utxo := transaction.NewUTXO(tx.TXid, outIndex, &output)
+					utxo := transaction.NewUTXO(tx.TXid, outIndex, output)
 					allOutPuts = append(allOutPuts, utxo)
 				}
 			}
@@ -311,10 +312,8 @@ func (bc *BlockChain) FindAllInput(from string) ([]transaction.Input, error) { /
 			for _, input := range tx.Input {
 				//判断这笔支出是不是from这个人的，如果一致，说明是from锁定的
 				if input.IsLocked(from) {
-					if input.IsLocked(from) {
-						//直接交易输入添加到切片中
-						allInPut = append(allInPut, input)
-					}
+					//直接交易输入添加到切片中
+					allInPut = append(allInPut, input)
 				}
 			}
 		}
@@ -393,6 +392,10 @@ func (bc *BlockChain) FindSpendOutputs(outputs []transaction.UTXO, inputs []tran
 	}
 	//上面所有： ----> 找到所有的未花费的交易输出
 
+	/*
+		utxo := bc.GetUTXO(outputs, inputs)  可优化哦》》》》》》》》》》
+	*/
+
 	//下面  -----> 找到需要花费的部分交易输出[] 和金额
 	var totalAmount uint = 0 //纪录本次交易需要用到的金额
 	for _, output := range outputs {
@@ -414,50 +417,78 @@ func (bc *BlockChain) FindSpendOutputs(outputs []transaction.UTXO, inputs []tran
 }
 
 /*
+	寻找某人未花费的交易输出，也就是所有余额 UTXO
+*/
+func (bc *BlockChain) GetUTXO(from string) (uint, error) {
+	//找到所有的交易输出 (收入)
+	outputs := bc.FindAllOutput(from)
+	//找到所有的交易输入 (支出)
+	inputs, err2 := bc.FindAllInput(from)
+	if err2 != nil {
+		return 0, err2
+	}
+	//[10,10,20,30,10]  [50]
+	//所有收入 - 所有支出
+	for _, input := range inputs { //循环位置没关系，只是输入输出进行对比
+		for index, utxo := range outputs {
+			//判断txid 和 vout 是否一致，如果一致说明这笔钱已经花费了，那就在切片UTXO[]中去掉，
+			if bytes.Compare(input.TXid, utxo.Txid) == 0 && input.VOut == utxo.Index {
+				/*
+					utxo：[1,2,3,4] input：[2]（有相等）  ---->
+					那就利用截取，实现utxo中去掉：utxo[1,3,4]
+				*/
+				if index >= len(outputs) { //如果是最后一条交易，那就不需要截取后面的
+					outputs = append(outputs[:index])
+				} else {
+					//删除utxo（前毕后开）
+					outputs = append(outputs[:index], outputs[index+1:]...)
+					break
+				}
+
+			}
+		}
+	}
+	//上面所有： ----> 找到所有的未花费的交易输出
+
+	//计算余额
+	var balance uint
+	for _, t := range outputs {
+		balance += t.Value
+	}
+	return balance, nil
+}
+
+/*
 	创建交易
 		参数:(交易发送者，接受者，金额)
+	功能：
+		1、准备工作（找spendamount）
+		2、调用transaction的NewTranaction()，并把spendAmount传入，返回交易
+		3、返回交易transaction
 
 */
 //把准备工作移到这里
 func (bc *BlockChain) NewTransaction(from, to string, amount uint) (*transaction.Transaction, error) {
 	/*
-		1、创建Input
-			a、在已经有的交易中，去寻找可用的交易输出，
-				怎么找？
-					思路：
-						1、先找到区块链中的所有区块，
-						2、然后从区块中找到所有的交易，
-						3、然后找到所有的Output，
-						4、然后筛选出所有和from有关的Output。（交易输入同上)
+		1、准备工作，找到spendAmount，怎么找？
+			思路：
+				1、先找到区块链中的所有区块，
+				2、然后从区块中找到所有的交易，
+				3、然后找到所有的Output，
+				4、然后筛选出所有和from有关的Output。（交易输入同上)
 				余额 = 所有的收入（交易输出） - 所有的支出（交易输入）
 
-			b、从所有的可用的交易输出中，取出一部分，判断是否足够（够用就行）
-			c、构建Input
-		2、创建Output
-		3、给txid赋值
-		4、返回交易对象，
+		2、传递spendAmount，调用transaction的NewTransaction(),返回err和交易对象
+		3、返回交易对象，
 	*/
-	//创建区块链对象
-	//创建Input的准备工作
-	//a、
 	//余额  = 交易输出 - 交易输入  方法 *************还没写
 	output := bc.FindAllOutput(from) //txid  下标
 	input, err2 := bc.FindAllInput(from)
 	if err2 != nil {
 		return nil, err2
 	}
-
 	//相减方法（抹除）
 	//寻找余额spendOutputs  = 所有的交易输出  - 所有的交易输入
-	/*spendOutputs := bc.FindSpendOutputs(output, input)
-
-	//判断余额是否够用
-	if spendOutputs == nil {
-		return nil,errors.New("没有可用的余额~")
-	}*/
-	//我们需要使用结构体来存储：txid  vout  面额  (UTXO结构体)
-	//寻找余额未消费的UTXO  （不妥）
-
 	//返回值1：需要用到的所有的钱，返回值2：所有钱的金额（对应关系）
 	spendOutputs, totalAmount := bc.FindSpendOutputs(output, input, amount)
 	if spendOutputs == nil {
@@ -474,4 +505,18 @@ func (bc *BlockChain) NewTransaction(from, to string, amount uint) (*transaction
 	}
 	//返回交易
 	return newTransaction, nil
+}
+
+/*
+	创建coinBase交易并返回，也就是系统奖励
+*/
+func (bc *BlockChain) NewCoinBase(address string) (*transaction.Transaction, error) {
+	if address == "" || len(address) == 0 {
+		return nil, errors.New("地址错误！")
+	}
+	base, err := transaction.NewCoinBase(address)
+	if err != nil {
+		return nil, err
+	}
+	return base, nil
 }
