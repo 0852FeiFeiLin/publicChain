@@ -2,10 +2,12 @@ package block
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"github.com/boltdb/bolt"
 	"publicChain/transaction"
+	"publicChain/wallet"
 )
 
 /**
@@ -23,8 +25,9 @@ const LAST_HASH = "last_hash"                //第二个桶的key值，存的是
 */
 type BlockChain struct {
 	/*	Blocks []*Block //多个区块组成区块链，区块类型的切片*/
-	DB       *bolt.DB //将区块存入bolt数据库里面,数据库连接对象
-	LastHash []byte   //最后一个hash值
+	DB       *bolt.DB       //将区块存入bolt数据库里面,数据库连接对象
+	LastHash []byte         //最后一个hash值
+	Wallet   *wallet.Wallet //钱包对象，这样钱包就是属于区块链的了，钱包功能都能通过区块链. 获取到
 }
 
 /*
@@ -36,18 +39,41 @@ type BlockChain struct {
 		5、桶存在: 直接使用那个桶2，获取到最后一个区块的hash
 		6、给区块链赋值: db对象 + 最后一个区块hash
 */
-func NewBlockChain(address string) (*BlockChain, error) { //address是地址，创建创世区块需要的账户
+func NewBlockChain() (*BlockChain, error) { //address是地址，创建创世区块需要的账户
+	var address string
 	var lastHash []byte //用于接收lastHash
 	//打开数据库
 	db, err := bolt.Open(BLOCKCHAIN_DB_PATH, 0600, nil)
 	if err != nil {
 		return nil, err
 	}
+	//创建钱包
+	//创建地址，创建区块链
+	wlt, err2 := wallet.NewWallet(db)
+	if err2 != nil {
+		return nil, err2
+	}
+	//判断是否是第一次运行，桶空就是第一次运行，如果是true，代表是第一次运行，那么需要存储私钥
+	isFirst := false
+	var privateKey *ecdsa.PrivateKey  //用于暂时存储私钥，后面需要通过这个变量把私钥放进桶里面
 	//存入数据到区块链数据库里面
 	err = db.Update(func(tx *bolt.Tx) error {
 		//先直接使用桶，如果没有桶再创建
 		bucket := tx.Bucket([]byte(BUCKET_BLOCK))
+
 		if bucket == nil { //如果桶为空，说明还没有区块链，就要创建区块链  桶1 = 区块链
+			/*
+				如果桶空，就代表是第一次运行，那就需要生成地址，并创建区块链，并保存私钥
+			*/
+			isFirst = true //是第一次运行
+			addr, pri, err := wlt.NewAddress()
+			if err != nil {
+				return err
+			}
+			//暂存到变量
+			privateKey = pri
+			//修改address，因为前面是空的，修改了才会是我们生成的随机地址
+			address = addr
 			//获取到创世区块,(1.调用方法。2.传入coinbase交易)
 			var bc BlockChain
 			coinbase, _ := bc.NewCoinBase(address) //放入交易包里面。功能单一
@@ -58,12 +84,12 @@ func NewBlockChain(address string) (*BlockChain, error) { //address是地址，�
 				return err
 			}
 			//把区块先转为[]byte
-			byteGenesic, err := genesic.Serialize()
+			genesicBytes, err := genesic.Serialize()
 			if err != nil {
 				return err
 			}
 			//把区块添加进去  key:区块hash  value:区块
-			bk.Put(genesic.NowHash, byteGenesic)
+			bk.Put(genesic.NowHash, genesicBytes)
 
 			//第二个桶2，存储最后一个区块的hash值
 			bk2, err := tx.CreateBucket([]byte(BUCKET_STATUS))
@@ -80,11 +106,24 @@ func NewBlockChain(address string) (*BlockChain, error) { //address是地址，�
 			lastHash = bk2.Get([]byte(LAST_HASH))
 		}
 		return nil
-	})
+	}) //update结束
+
+	//如果是第一运行，那么就那就保存私钥...为神么写update的外面，
+	//目的就是不让block的update和SavePrivateKey()里面的update同时调用，引起死锁
+	if isFirst {
+		//那就保存私钥
+		err := wlt.SavePrivateKey(address, privateKey)
+		//判断是否保存成功
+		if err != nil {
+			return nil, err
+		}
+	}
 	//以上都是准备工作，这里是给区块链结构赋值，也就是创建区块链
 	bc := BlockChain{
 		DB:       db,
 		LastHash: lastHash,
+		//区块链 里面添加钱包，下次要用的时候.获取到钱包即可
+		Wallet: wlt,
 	}
 	//返回区块链和错误信息
 	return &bc, err

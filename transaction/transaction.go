@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"publicChain/tools"
+	"publicChain/wallet"
+	"time"
 )
 
 /**
@@ -24,6 +26,8 @@ type Transaction struct {
 	Input []Input
 	//交易输出（可以有多个交易输出）
 	OutPut []OutPut
+	//时间戳
+	TimeStrap int64
 }
 
 //交易序列化方法
@@ -59,6 +63,11 @@ func (txs *Transaction) DeSerialize(txsByte []byte) (*Transaction, error) {
 	coinbase交易  移动到了blockChain中
 */
 func NewCoinBase(address string) (*Transaction, error) { //address 是矿工的账户
+	//获取到公钥hash
+	pubHash, err2 := wallet.GetPubHash(address)
+	if err2 != nil {
+		return nil, err2
+	}
 	//实例化交易对象
 	cb := Transaction{
 		Input: nil,
@@ -66,13 +75,14 @@ func NewCoinBase(address string) (*Transaction, error) { //address 是矿工的�
 			//coinbase只有一个交易输出，所以就写一个大括号
 			{
 				Value: 50,
-				//锁定脚本里面的是一个账户，公钥
-				ScriptPubKey: []byte(address),
-				//[]byte("zhang")
+				//锁定脚本里面的是一个账户，公钥  --->  修改成公钥hash
+				//ScriptPubKey: []byte(address),   //[]byte("zhang")
+				ScriptPubKey: pubHash,
 			},
 			//正常的交易，是有两个交易输出，也就是两个大括号{}，{}代表两个交易输出
 		},
 	}
+	cb.TimeStrap = time.Now().Unix()
 	//先把交易对象序列化，
 	txsByte, err := cb.Serialize()
 	//计算出hash值，然后当作txid
@@ -118,7 +128,9 @@ func NewTransaction(from, to string, amount uint,spendOutputs []UTXO) (*Transact
 	allInput := make([]Input, 0) //这次交易要用到的所有交易输入 [10,10,20,30]
 	for _, output := range spendOutputs {
 		//遍历form要给的钱
-		input := NewInput(output.Txid, output.Index, []byte(from)) //参数三是from，是因为from要用这笔钱，所以是from的script
+
+		//公钥hash：需要把对应的私钥存到数据库中，之后才能获取对应的公钥hash，
+		input := NewInput(output.Txid, output.Index, nil,nil) //参数三是from，是因为from要用这笔钱，所以是from的script
 		allInput = append(allInput, input)                         //这个就是outPut里面的Input
 	}
 
@@ -130,9 +142,13 @@ func NewTransaction(from, to string, amount uint,spendOutputs []UTXO) (*Transact
 		/*
 			[10,10,20,30] 70 (余额刚好够的情况) --> 不需要进行找零和构建最后一张面额
 		*/
+		pubHash, err := wallet.GetPubHash(to)
+		if err != nil {
+			return nil, err
+		}
 		if totalNums <= amount {
 			//构建output,属于to的
-			output := NewOutPut(out.Value, []byte(to))
+			output := NewOutPut(out.Value,pubHash)
 			allOutPut = append(allOutPut, output)
 			/*
 				[10,10,20,30] 50 (余额有多的情况) --> 需要找零20，和构建最后一张面额，
@@ -144,11 +160,21 @@ func NewTransaction(from, to string, amount uint,spendOutputs []UTXO) (*Transact
 			totalNums -= out.Value
 			//这就是还需要给的钱， 50 - 40 = 10 ，还需要构建Ouput
 			needAmount := amount - totalNums
-			output := NewOutPut(needAmount, []byte(to))
+			to_pubHash, err := wallet.GetPubHash(to)
+			if err != nil {
+				return nil, err
+			}
+
+			output := NewOutPut(needAmount, to_pubHash)
 			//[10,10,20,10]
 			allOutPut = append(allOutPut, output)
 			//找零
-			backChange := NewOutPut(out.Value-needAmount, []byte(from))
+			from_pubHash, err := wallet.GetPubHash(from)
+			if err != nil {
+				return nil, err
+			}
+			//锁定到的是公钥hash上面
+			backChange := NewOutPut(out.Value-needAmount, from_pubHash)
 			allOutPut = append(allOutPut, backChange) //找零也添加到本次交易的交易输出中
 		}
 
@@ -158,6 +184,7 @@ func NewTransaction(from, to string, amount uint,spendOutputs []UTXO) (*Transact
 		OutPut: allOutPut,
 		Input:  allInput,
 	}
+	tx.TimeStrap = time.Now().Unix()
 	//序列化
 	byteTx, err := tx.Serialize()
 	if err != nil {

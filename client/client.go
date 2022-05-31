@@ -27,11 +27,19 @@ type Cli struct {
 }
 
 func (cl *Cli) Run() {
+	//获取到随机创世区块的接受者的合法地址  ！！！
+	//这错了，没区块链怎能创建地址呢，所以我们需要把创建地址的方法写到区块链里面，而不是这里
+	/*address, err := cl.bc.Wallet.NewAddress()
+	fmt.Println(address)
+	if err != nil {
+		return
+	}*/
+
 	//使用区块链对象
-	chain, _ := block.NewBlockChain("zhang")
-	defer chain.DB.Close()
+	chain, _ := block.NewBlockChain()
 	//并赋值给client客户端，不然使用的时候会报空指针异常
 	cl.bc = chain
+	defer chain.DB.Close()
 
 	//判断数据库操作对象是否存在，写在这里就不需要每次在方法里面写了
 	if cl.bc == nil {
@@ -70,10 +78,16 @@ func (cl *Cli) Run() {
 	//功能9
 	case "getbalance":
 		cl.getBalance()
+	case "createaddr":
+		cl.createAddr()
+	case "checkaddr":
+		cl.checkAddr()
+	case "getprikey":
+		cl.getPriKey()
+
 	//功能n
 	case "help":
 		cl.help()
-
 	default:
 		fmt.Println("please check it！not have this function~")
 		//退出
@@ -87,19 +101,27 @@ func (cl *Cli) Run() {
 			main.exe createChain --address  "矿工账户"
 */
 func (cl *Cli) createChain() {
-	createBlockChain := flag.NewFlagSet("createBlockchain", flag.ExitOnError)
-	//获取参数
-	address := createBlockChain.String("address", "", "创世区块的交易信息")
-	//解析
-	createBlockChain.Parse(os.Args[2:])
-	//调用方法
 	//判断区块链.db()是否存在，存在就不创建，不存在NewBlockChain
 	exits := tools.FileExits("blockchain.db")
 	if exits {
 		fmt.Println("区块链已经存在，不能再创建了...")
 		return
 	}
-	_, err := block.NewBlockChain(*address)
+
+	createBlockChain := flag.NewFlagSet("createBlockchain", flag.ExitOnError)
+	//获取参数 没有参数了
+	//address := createBlockChain.String("address", "", "创世区块的交易信息")
+	//解析
+	createBlockChain.Parse(os.Args[2:])
+	//调用方法
+
+	//对输入的地址进行验证，如果验证通过才能进行下面的计算
+/*	verify := cl.bc.Wallet.AddressVerify(*address)
+	if !verify {
+		fmt.Println("地址不合法")
+		return
+	}*/
+	_, err := block.NewBlockChain()
 	if err != nil {
 		fmt.Println("创建区块链失败")
 		return
@@ -124,6 +146,16 @@ func (cl *Cli) send() {
 	amount := sendflag.Uint("amount", 0, "交易的金额")
 	//解析
 	sendflag.Parse(os.Args[2:])
+	from_verify := cl.bc.Wallet.AddressVerify(*from)
+	if !from_verify {
+		fmt.Println("from的地址不合法")
+		return
+	}
+	to_verify := cl.bc.Wallet.AddressVerify(*to)
+	if !to_verify {
+		fmt.Println("to的地址不合法")
+		return
+	}
 	//1、创建普通交易
 	newTransaction, err := cl.bc.NewTransaction(*from, *to, *amount)
 	if err != nil {
@@ -183,7 +215,7 @@ func (cl *Cli) printChain() {
 			fmt.Printf("\t\t有%d个交易输出:\n", len(tx.OutPut))
 			for i, output := range tx.OutPut {
 				//
-				fmt.Printf("\t\t\t收入%d,金额%d,属于%s\n", i, output.Value, string(output.ScriptPubKey))
+				fmt.Printf("\t\t\t收入%d,金额%d,属于%x\n", i, output.Value, output.ScriptPubKey)
 			}
 
 			//fmt.Printf("\t交易输出:%s\n",string(tx.OutPut[0].ScriptPubKey))
@@ -327,19 +359,71 @@ func (cl *Cli) getBalance() {
 	getbalance := flag.NewFlagSet("getbalance", flag.ExitOnError)
 	from := getbalance.String("address", "", "需要查询余额的地址")
 	getbalance.Parse(os.Args[2:])
+	//对输入的地址进行验证，如果验证通过才能进行下面的计算
+	verify :=cl.bc.Wallet.AddressVerify(*from)
+	if !verify {
+		fmt.Println("地址不合法")
+		return
+	}
 	balance, err := cl.bc.GetUTXO(*from)
 	if err != nil {
 		return
 	}
 	fmt.Printf("%s的余额为：%d\n", *from, balance)
 }
+//创建地址
+func (cl *Cli)createAddr(){
+	//1.创建地址  2.并把地址存储到桶里面
+	btcAddress,pri, err := cl.bc.Wallet.NewAddress()
+	if err != nil {
+		fmt.Println("创建地址错误")
+		return
+	}
+	err = cl.bc.Wallet.SavePrivateKey(btcAddress, pri)
+	if err != nil {
+		fmt.Println("保存私钥出现错误！",err.Error())
+		return
+	}
+	fmt.Println("比特币地址生成成功、并保存成功！")
+	fmt.Println("比特币地址：",btcAddress)
+
+}
+/*
+	检验地址是否有效
+ */
+func (cl *Cli)checkAddr(){
+	checkAddr := flag.NewFlagSet("checkaddr", flag.ExitOnError)
+	address := checkAddr.String("addr","","需要验证的地址")
+	checkAddr.Parse(os.Args[2:])
+	verify := cl.bc.Wallet.AddressVerify(*address)
+	if !verify {
+		fmt.Println("地址无效！！！")
+		return
+	}
+	fmt.Println("地址有效!")
+}
+
+func (cl *Cli)getPriKey(){
+	getprikey := flag.NewFlagSet("getprikey", flag.ExitOnError)
+	addr := getprikey.String("addr", "", "获取私钥对应的地址")
+	//把创建存储私钥的桶放到区块链里面，实现创建区块链的时候就创建私钥桶
+	getprikey.Parse(os.Args[2:])
+	//调用获取私钥的方法  (存储私钥是在生成地址的时候存储了pri)
+	priKey, err := cl.bc.Wallet.ShowPrivateKey(*addr)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println("地址的私钥为：",priKey)
+}
 
 func (cl *Cli) help() {
 	fmt.Println("main.exe Command --data ?")
 	fmt.Println("Has the following Command:")
-	fmt.Println("\t \t createBlockchain --data Transaction information of Genesis block")
+	fmt.Println("\t \t createBlockchain --address")
 	fmt.Println("\t \t addblock --data Transaction information of this block")
 	fmt.Println("\t \t getblockinfo --hash The hash of this block")
+	fmt.Println("\t \t getbalance --address ")
 	fmt.Println("\t \t printchain")
 	fmt.Println("\t \t getblockconut")
 	fmt.Println("\t \t getfirstblock")

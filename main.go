@@ -10,5 +10,6 @@ import "publicChain/client"
  **/
 func main() {
 	var cli client.Cli
+
 	cli.Run()
 }

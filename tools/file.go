@@ -1,6 +1,10 @@
 package tools
 
-import "os"
+import (
+	"bytes"
+	"encoding/gob"
+	"os"
+)
 
 /**
  * @author: linfeifei
@@ -28,3 +32,21 @@ func FileExits(path string) bool {
 	return !os.IsNotExist(err) //假设存错误：false  返回值!false   -->true
 
 }
+
+/*
+	序列化数据
+ */
+func Serialize(data interface{}) ([]byte,error) {
+	var result bytes.Buffer
+	encoder := gob.NewEncoder(&result)
+	err := encoder.Encode(data)
+	if err != nil {
+		return nil,err
+	}
+	return result.Bytes(),nil
+}
+
+//反序列化
+ func DeSerialize([]byte)(interface{}){
+ 	return nil
+ }

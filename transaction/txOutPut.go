@@ -1,6 +1,9 @@
 package transaction
 
-import "bytes"
+import (
+	"bytes"
+	"publicChain/wallet"
+)
 
 /**
  * @author: linfeifei
@@ -27,13 +30,17 @@ func (o *OutPut) IsUnlock(from string) bool { //判断在这笔交易能不能�
 	if from == "" {
 		 return false
 	}
-	return bytes.Compare(o.ScriptPubKey,[]byte(from)) == 0
+	pubHash, err := wallet.GetPubHash(from)
+	if err != nil {
+		return false
+	}
+	return bytes.Compare(o.ScriptPubKey,pubHash) == 0
 	//相等返回值就是0.返回true、如果不是0代表不相等，那么就返回false
 }
 
 /*
 	实例化Output
  */
-func NewOutPut(value uint,scriptPubkey []byte)OutPut{
-	return OutPut{Value: value,ScriptPubKey: scriptPubkey}
+func NewOutPut(value uint,scriptPubKey []byte)OutPut{
+	return OutPut{Value: value,ScriptPubKey: scriptPubKey}
 }
