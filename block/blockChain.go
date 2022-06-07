@@ -60,7 +60,6 @@ func NewBlockChain() (*BlockChain, error) { //address是地址，创建创世区
 	err = db.Update(func(tx *bolt.Tx) error {
 		//先直接使用桶，如果没有桶再创建
 		bucket := tx.Bucket([]byte(BUCKET_BLOCK))
-
 		if bucket == nil { //如果桶为空，说明还没有区块链，就要创建区块链  桶1 = 区块链
 			/*
 				如果桶空，就代表是第一次运行，那就需要生成地址，并创建区块链，并保存私钥
@@ -74,6 +73,7 @@ func NewBlockChain() (*BlockChain, error) { //address是地址，创建创世区
 			privateKey = pri
 			//修改address，因为前面是空的，修改了才会是我们生成的随机地址
 			address = addr
+			fmt.Println("地址为："+addr)
 			//获取到创世区块,(1.调用方法。2.传入coinbase交易)
 			var bc BlockChain
 			coinbase, _ := bc.NewCoinBase(address) //放入交易包里面。功能单一

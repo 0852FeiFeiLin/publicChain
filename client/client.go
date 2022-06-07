@@ -78,14 +78,16 @@ func (cl *Cli) Run() {
 	//功能9
 	case "getbalance":
 		cl.getBalance()
+	//功能10
 	case "createaddr":
 		cl.createAddr()
+	//功能11
 	case "checkaddr":
 		cl.checkAddr()
+	//功能12
 	case "getprikey":
 		cl.getPriKey()
-
-	//功能n
+	//帮助菜单
 	case "help":
 		cl.help()
 	default:
@@ -93,6 +95,38 @@ func (cl *Cli) Run() {
 		//退出
 		os.Exit(1)
 	}
+}
+
+func (cl *Cli) help() {
+	fmt.Println("main.exe 命令 --选项 ?数据")
+	fmt.Println("Has the following Command:")
+	fmt.Println("\t \t createblockchain")                           //注意：我们程序启动自动生成了区块链，
+	fmt.Println("\t \t send --form ?发起者 --to ?接受者 --amount ?金额")    //交易
+	fmt.Println("\t \t getblockinfo --hash The hash of this block") //获取区块信息（还没实现）
+	fmt.Println("\t \t getbalance --addr ")                         //获取余额
+	fmt.Println("\t \t checkaddr --addr ")                          //检查地址是否有效
+	fmt.Println("\t \t getprikey --addr ")                          //根据地址返回私钥
+	fmt.Println("\t \t printchain")                                 //遍历区块链
+	fmt.Println("\t \t createaddr")                                 //创建地址
+	fmt.Println("\t \t getblockconut")                              //获取区块个数
+	fmt.Println("\t \t getfirstblock")                              //获取第一个区块
+	fmt.Println("\t \t getlastblock")                               //获取最后一个区块
+	fmt.Println("\t \t getallblock")                                //获取所有区块
+	fmt.Println()
+}
+
+func (cl *Cli) help1() {
+	fmt.Println("main.exe 命令 --选项 ?数据")
+	fmt.Println("具有如下命令：")
+	fmt.Println("\t \t createBlockchain --address")
+	fmt.Println("\t \t addblock --data Transaction information of this block")
+	fmt.Println("\t \t getblockinfo --hash The hash of this block")
+	fmt.Println("\t \t getbalance --address ")
+	fmt.Println("\t \t printchain")
+	fmt.Println("\t \t getblockconut")
+	fmt.Println("\t \t getfirstblock")
+	fmt.Println("\t \t getlastblock")
+	fmt.Println()
 }
 
 /*
@@ -116,11 +150,11 @@ func (cl *Cli) createChain() {
 	//调用方法
 
 	//对输入的地址进行验证，如果验证通过才能进行下面的计算
-/*	verify := cl.bc.Wallet.AddressVerify(*address)
-	if !verify {
-		fmt.Println("地址不合法")
-		return
-	}*/
+	/*	verify := cl.bc.Wallet.AddressVerify(*address)
+		if !verify {
+			fmt.Println("地址不合法")
+			return
+		}*/
 	_, err := block.NewBlockChain()
 	if err != nil {
 		fmt.Println("创建区块链失败")
@@ -224,22 +258,7 @@ func (cl *Cli) printChain() {
 	fmt.Println("遍历完成！！")
 }
 
-func (cl *Cli) getBlockCount() {
-	//先判断区块链是否存在，
-	exits := tools.FileExits("blockchain.db")
-	if !exits {
-		fmt.Println("区块链不存在！")
-		return
-	}
-	blocks, err := cl.bc.GetAllBlock()
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	fmt.Println("区块总数量：", len(blocks))
-}
-
-func (cl *Cli) getLastBlock() {
+func (cl *Cli) getLastBlock() { //改！！！！！！！！！！！！！！！！！！！
 	//先判断区块链是否存在，
 	exits := tools.FileExits("blockchain.db")
 	if !exits {
@@ -255,7 +274,6 @@ func (cl *Cli) getLastBlock() {
 	fmt.Printf("PrevHash: %x\n", blocks[0].PrevHash)
 	fmt.Printf("区块Hash: %x\n", blocks[0].NowHash)
 	fmt.Printf("DataSize: %d\n", len(blocks[0].Txs))
-
 	//遍历切片集合
 	for _, tx := range blocks[0].Txs {
 		//交易hash值
@@ -271,10 +289,25 @@ func (cl *Cli) getLastBlock() {
 		fmt.Printf("\t\t有%d个交易输出:\n", len(tx.OutPut))
 		for i, output := range tx.OutPut {
 			//
-			fmt.Printf("\t\t\t收入%d,金额%d,属于%s\n", i, output.Value, string(output.ScriptPubKey))
+			fmt.Printf("\t\t\t收入%d,金额%d,属于%x\n", i, output.Value, string(output.ScriptPubKey))
 		}
 	}
 
+}
+
+func (cl *Cli) getBlockCount() {
+	//先判断区块链是否存在，
+	exits := tools.FileExits("blockchain.db")
+	if !exits {
+		fmt.Println("区块链不存在！")
+		return
+	}
+	blocks, err := cl.bc.GetAllBlock()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println("区块总数量：", len(blocks))
 }
 
 /*
@@ -309,7 +342,7 @@ func (cl *Cli) getFirstBlock() {
 		fmt.Printf("\t\t有%d个交易输出:\n", len(tx.OutPut))
 		for i, output := range tx.OutPut {
 			//
-			fmt.Printf("\t\t\t收入%d,金额%d,属于%s\n", i, output.Value, string(output.ScriptPubKey))
+			fmt.Printf("\t\t\t收入%d,金额%d,属于%x\n", i, output.Value, string(output.ScriptPubKey))
 		}
 	}
 
@@ -357,10 +390,10 @@ func (cl *Cli) getBalance() {
 		return
 	}
 	getbalance := flag.NewFlagSet("getbalance", flag.ExitOnError)
-	from := getbalance.String("address", "", "需要查询余额的地址")
+	from := getbalance.String("addr", "", "需要查询余额的地址")
 	getbalance.Parse(os.Args[2:])
 	//对输入的地址进行验证，如果验证通过才能进行下面的计算
-	verify :=cl.bc.Wallet.AddressVerify(*from)
+	verify := cl.bc.Wallet.AddressVerify(*from)
 	if !verify {
 		fmt.Println("地址不合法")
 		return
@@ -371,29 +404,31 @@ func (cl *Cli) getBalance() {
 	}
 	fmt.Printf("%s的余额为：%d\n", *from, balance)
 }
+
 //创建地址
-func (cl *Cli)createAddr(){
+func (cl *Cli) createAddr() {
 	//1.创建地址  2.并把地址存储到桶里面
-	btcAddress,pri, err := cl.bc.Wallet.NewAddress()
+	btcAddress, pri, err := cl.bc.Wallet.NewAddress()
 	if err != nil {
 		fmt.Println("创建地址错误")
 		return
 	}
 	err = cl.bc.Wallet.SavePrivateKey(btcAddress, pri)
 	if err != nil {
-		fmt.Println("保存私钥出现错误！",err.Error())
+		fmt.Println("保存私钥出现错误！", err.Error())
 		return
 	}
 	fmt.Println("比特币地址生成成功、并保存成功！")
-	fmt.Println("比特币地址：",btcAddress)
+	fmt.Println("比特币地址：", btcAddress)
 
 }
+
 /*
 	检验地址是否有效
- */
-func (cl *Cli)checkAddr(){
+*/
+func (cl *Cli) checkAddr() {
 	checkAddr := flag.NewFlagSet("checkaddr", flag.ExitOnError)
-	address := checkAddr.String("addr","","需要验证的地址")
+	address := checkAddr.String("addr", "", "需要验证的地址")
 	checkAddr.Parse(os.Args[2:])
 	verify := cl.bc.Wallet.AddressVerify(*address)
 	if !verify {
@@ -403,7 +438,7 @@ func (cl *Cli)checkAddr(){
 	fmt.Println("地址有效!")
 }
 
-func (cl *Cli)getPriKey(){
+func (cl *Cli) getPriKey() {
 	getprikey := flag.NewFlagSet("getprikey", flag.ExitOnError)
 	addr := getprikey.String("addr", "", "获取私钥对应的地址")
 	//把创建存储私钥的桶放到区块链里面，实现创建区块链的时候就创建私钥桶
@@ -414,19 +449,5 @@ func (cl *Cli)getPriKey(){
 		fmt.Println(err.Error())
 		return
 	}
-	fmt.Println("地址的私钥为：",priKey)
-}
-
-func (cl *Cli) help() {
-	fmt.Println("main.exe Command --data ?")
-	fmt.Println("Has the following Command:")
-	fmt.Println("\t \t createBlockchain --address")
-	fmt.Println("\t \t addblock --data Transaction information of this block")
-	fmt.Println("\t \t getblockinfo --hash The hash of this block")
-	fmt.Println("\t \t getbalance --address ")
-	fmt.Println("\t \t printchain")
-	fmt.Println("\t \t getblockconut")
-	fmt.Println("\t \t getfirstblock")
-	fmt.Println("\t \t getlastblock")
-	fmt.Println()
+	fmt.Println("地址的私钥为：", priKey)
 }

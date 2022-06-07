@@ -92,7 +92,7 @@ func (w *Wallet) NewAddress() (string, *ecdsa.PrivateKey, error) {
 	hash := tools.GetSha256Hash(pubKeyByte)
 	pubHash := tools.GetRipemd160(hash) //得到公钥Hahs
 	//version + pubHash
-	ver_pubHash := append( []byte{VERSION},pubHash...)
+	ver_pubHash := append([]byte{VERSION}, pubHash...)
 	//对上一步的结果进行双重sha256计算，截取前四个字节，得到校验位checkCode
 	hash1 := tools.GetSha256Hash(ver_pubHash)
 	hash2 := tools.GetSha256Hash(hash1)
@@ -120,7 +120,7 @@ func (w *Wallet) SavePrivateKey(btcAddress string, pri *ecdsa.PrivateKey) error 
 		}
 		//有桶，存储私钥(序列化后的私钥)
 		//priByte, err2 := json.Marshal(pri)
-		priByte, err2 := tools.Serialize(pri)
+		priByte, err2 :=w.SerializePri(pri)
 		if err2 != nil {
 			fmt.Println(err2.Error())
 			return err2
@@ -133,11 +133,40 @@ func (w *Wallet) SavePrivateKey(btcAddress string, pri *ecdsa.PrivateKey) error 
 	})
 	return err
 }
+/*
+	序列化私钥
+ */
+func (w *Wallet) SerializePri(data interface{}) ([]byte, error) {
+	var result bytes.Buffer
+	encoder := gob.NewEncoder(&result)
+	gob.Register(elliptic.P256())
+
+	err := encoder.Encode(data)
+	if err != nil {
+		return nil, err
+	}
+	return result.Bytes(), nil
+}
+/*
+	反序列化私钥
+ */
+func (w *Wallet) DeSerializePri(priBytes []byte) (privateKey *ecdsa.PrivateKey, err error) {
+	buffer := bytes.NewBuffer(priBytes)
+	decoder := gob.NewDecoder(buffer)
+	gob.Register(elliptic.P256())
+
+	err = decoder.Decode(&privateKey)
+	if err!= nil {
+		return nil,err
+	}
+	return privateKey,nil
+}
+
 
 /*
 	功能5：根据地址，获取私钥并返回
 */
-func (w *Wallet) ShowPrivateKey(addr string) (privateKey ecdsa.PrivateKey,err  error) {
+func (w *Wallet) ShowPrivateKey(addr string) (privateKey *ecdsa.PrivateKey, err error) {
 	//通过地址，也就是地址，获取桶中的私钥
 	db := w.db
 	//var privateKey ecdsa.PrivateKey
@@ -148,14 +177,17 @@ func (w *Wallet) ShowPrivateKey(addr string) (privateKey ecdsa.PrivateKey,err  e
 		}
 		priBytes := bk.Get([]byte(addr))
 		//反序列化
-		buffer := bytes.NewBuffer(priBytes)
+		/*buffer := bytes.NewBuffer(priBytes)
 		decoder := gob.NewDecoder(buffer)
-
-		err := decoder.Decode(&privateKey)
-		fmt.Println("err:",err.Error())
+		gob.Register(elliptic.P256())
+		err := decoder.Decode(&privateKey)*/
+		//err = json.Unmarshal(priBytes, &privateKey)
+		privateKey, err = w.DeSerializePri(priBytes)
+		if err != nil {
+			fmt.Println("err:", err.Error())
+		}
 		return err
 	})
-	fmt.Println("View",err)
 	return privateKey, err
 }
 
@@ -264,7 +296,6 @@ func HashPubKey(pub []byte) []byte {
 	return pubHash
 }
 
-
 /*
 	获取到桶中的所有私钥
- */
+*/
